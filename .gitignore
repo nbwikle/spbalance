@@ -47,3 +47,11 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Data files
+*.RDS
+*.rds
+
+# Cluster files
+*.Rout
+**/logs

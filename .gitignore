@@ -20,6 +20,7 @@
 
 # RStudio files
 .Rproj.user/
+.Rproj
 
 # produced vignettes
 vignettes/*.html
@@ -38,6 +39,7 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+.DS_Store
 
 # pkgdown site
 docs/
@@ -55,3 +57,4 @@ rsconnect/
 # Cluster files
 *.Rout
 **/logs
+

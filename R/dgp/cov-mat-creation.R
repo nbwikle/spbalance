@@ -24,10 +24,10 @@ dir.create(here::here("data", "cov-mats"), showWarnings = FALSE)
 #--- 2. Visual comparisons of cov. functions with different range parameters ---#
 #-------------------------------------------------------------------------------#
 
-# Matern Covariance:
 par(mfrow = c(1,1))
 x.vals <- seq(from = 0, to = 20, by = 0.01)
 
+# Matern Covariance:
 png(here::here("data", "cov-mats", "Matern-plot.png"),
     width = 7, height = 5, units = "in", res = 300)
 plot(x.vals, covFun(x.vals, theta = c(3, 1.5), type = "Matern"), type = "l",
@@ -68,7 +68,7 @@ dev.off()
 #--------------------------------------------------------#
 
 # Important: This only needs to be performed once!
-#   -> requires ~ 5.5 GB of space
+#   -> requires ~6.5 GB of space
 #   -> time on my laptop: ~11 hours
 
 # GP1 (squared exponential, rho = 5.1, on bigger lattice)

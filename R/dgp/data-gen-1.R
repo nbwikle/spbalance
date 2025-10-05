@@ -321,11 +321,11 @@ dataGen1 <- function(sim.args, K.mat = "default", nonlin = FALSE){
   sigma.type <- sim.args$cov
 
   # Sigma1 = t(R1) %*% R1
-  R1 <- readRDS(here::here("data", "cov-mats", "covars",
+  R1 <- readRDS(here::here("data", "cov-mats",
           paste("GP1-n", n.val, ".RDS", sep = "")))
 
   # Sigma2 = t(R2) %*% R2
-  R2 <- readRDS(here::here("data", "cov-mats", "covars",
+  R2 <- readRDS(here::here("data", "cov-mats",
           paste(sigma.type, "-n", n.val, "-r", r.val, ".RDS", sep = "")))
 
 

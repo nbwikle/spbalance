@@ -3,7 +3,6 @@
 
 ### Functions to estimate the average treatment effect (ATE).
 
-
 ateUnadjust <- function(out, trt){
   # Estimates the ATE using unadjusted difference in means.
   # Input

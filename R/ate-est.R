@@ -205,7 +205,8 @@ ateGLMM <- function(form, data, out, est.type, ...){
   }
 }
 
-ateBAL <- function(form, data, out, est.type, opt.params, lambda.vals, tuning = "max.bal", folds = NULL){
+
+ateBAL <- function(form, data, out, est.type, opt.params, lambda.vals, tuning = "max.bal", coefvar.r = 0.9, folds = 10){
   # Estimates the ATE via IPTW with a covariate balancing propensity score.
   #   This follows the approach of Zhao (2019); spatial effects can
   #   be represented with a TPRS or KRR term.
@@ -219,150 +220,66 @@ ateBAL <- function(form, data, out, est.type, opt.params, lambda.vals, tuning = 
   #   lambda.vals: penalty tuning parameter values to consider
   #   tuning: method used to select tuning parameter; options include
   #       'cv.score', 'cv.grad', 'coefvar', 'max.bal', 'min', and 'all'
-  #   folds: number of CV folds; default is NULL
+  #   coefvar.r: ratio used in "coefvar" tuning parameter selection; scalar or vector valued
+  #   folds: number of CV folds; default is 10
   # Output
   #   A list with the ATE estimate as well as the selected tuning parameter.
 
-  # estimate balancing propensity score using full data
-  full.fit <- spatialBalanceOptim(
+
+  # estimate balancing propensity scores
+  fit <- spBalance(
     formula = form,
     data = data,
     lambda = lambda.vals,
-    opt.params = opt.params
+    opt.params = opt.params,
+    tuning = tuning,
+    hide.detail = TRUE,
+    folds = folds,
+    coefvar.r = coefvar.r
   )
-  trt <- full.fit$gam.obj$y
 
   if (tuning == "all"){
-    ate.vals <- list()
-    lambda.final <- rep(NA_real_, 6)
-  }
-
-  # select lambda via CV
-  if ((tuning == "cv.score") | (tuning == "cv.grad") | (tuning == "all")){
-    cv.res <- cvLambda(
-      kfold = folds,
-      formula = form,
-      data = data,
-      opt.params = opt.params,
-      lambda.vals = lambda.vals,
-      type = tuning
-    )
-
-    if (tuning == "cv.score"){
-      l.cv.score <- which(lambda.vals == cv.res$lambda[[1]])
-      ate.vals <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.cv.score])
-      lambda.final <- cv.res$lambda[[1]]
-    } else if (tuning == "cv.grad"){
-      l.cv.grad <- which(lambda.vals == cv.res$lambda[[2]])
-      ate.vals <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.cv.grad])
-      lambda.final <- cv.res$lambda[[2]]
-    } else if (tuning == "all"){
-      l.cv.score <- which(lambda.vals == cv.res$lambda[[1]])
-      ate.vals[[1]] <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.cv.score])
-      lambda.final[1] <- cv.res$lambda[[1]]
-      l.cv.grad <- which(lambda.vals == cv.res$lambda[[2]])
-      ate.vals[[2]] <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.cv.grad])
-      lambda.final[2] <- cv.res$lambda[[2]]
+    ate.vals <- matrix(data = NA_real_, nrow = length(fit$lambda), ncol = 3)
+    colnames(ate.vals) <- c("HT", "Hajek", "OW")
+    rownames(ate.vals) <- names(fit$lambda)
+    for (k in 1:length(fit$lambda)){
+      ate.vals[k,] <- ateEst(out = out, trt = fit$gam$y, pr.trt = fit$pi.hat[,k])[[2]]
     }
+  } else {
+    ate.vals <- ateEst(out = out, trt = fit$gam$y, pr.trt = fit$pi.hat)[[2]]
   }
 
-  # select lambda via coefficent of variation
-  if ((tuning == "coefvar") | (tuning == "all")){
-
-    coefv.9 <- coefVar(
-      z = trt,
-      pi.vals = full.fit$pi.hat,
-      lambda = lambda.vals,
-      ratio = 0.9
-    )
-
-    coefv.5 <- coefVar(
-      z = trt,
-      pi.vals = full.fit$pi.hat,
-      lambda = lambda.vals,
-      ratio = 0.5
-    )
-
-    if (tuning == "coefvar"){
-      l.cv9 <- which(lambda.vals == coefv.9$lambda)
-      ate.vals <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.cv9])
-      lambda.final <- coefv.9$lambda
-    } else if (tuning == "all"){
-      l.cv9 <- which(lambda.vals == coefv.9$lambda)
-      ate.vals[[3]] <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.cv9])
-      lambda.final[3] <- coefv.9$lambda
-      l.cv5 <- which(lambda.vals == coefv.5$lambda)
-      ate.vals[[4]] <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.cv5])
-      lambda.final[4] <- coefv.5$lambda
-    }
-  }
-
-  # select lambda via setting balance to a specific threshold
-  if ((tuning == "max.bal") | (tuning == "all")){
-
-    mbal <- maxBal(fit = full.fit, z = trt, data = data, max.diff = 0.1, return.fit = FALSE)
-
-    if (tuning == "max.bal"){
-      l.bal <- which(lambda.vals == mbal$lambda)
-      ate.vals <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.bal])
-      lambda.final <- mbal$lambda
-    } else if (tuning == "all"){
-      l.bal <- which(lambda.vals == mbal$lambda)
-      ate.vals[[5]] <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.bal])
-      lambda.final[5] <- mbal$lambda
-    }
-  }
-
-  # use minimum lambda value
-  if (tuning == "min"){
-    l.min <- which(lambda.vals == min(lambda.vals))
-    ate.vals <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.min])
-    lambda.final <- lambda.vals[l.min]
-  } else if (tuning == "all"){
-    l.min <- which(lambda.vals == min(lambda.vals))
-    ate.vals[[6]] <- ateEst(out, trt, pr.trt = full.fit$pi.hat[,l.min])
-    lambda.final[6] <- lambda.vals[l.min]
-  }
 
   # compile results
   if (tuning == "all"){
-    # return all estimands
-    estimand <- matrix(data = NA_real_, nrow = 3, ncol = 6)
-    rownames(estimand) <- c("HT", "Hajek", "OW")
-    colnames(estimand) <- c("cv.score", "cv.grad", "coefv9", "coefv5", "maxbal", "min")
-    for (k in 1:6){
-      estimand[,k] <- ate.vals[[k]][[2]]
-    }
+
     # determine which estimand to return
     if (est.type == "all"){
-      final.est <- estimand
+      final.est <- ate.vals
     } else if (type == "HT"){
-      final.est <- estimand[1,]
+      final.est <- ate.vals[,1]
     } else if (type == "Hajek"){
-      final.est <- estimand[2,]
+      final.est <- ate.vals[,2]
     } else if (type == "OW"){
-      final.est <- estimand[3,]
+      final.est <- ate.vals[,3]
     }
   } else {
-    # return a specific estimand
-    estimand <- ate.vals[[2]]
-    names(estimand) <- c("HT", "Hajek", "OW")
     # determine which estimand to return
     if (est.type == "all"){
-      final.est <- estimand
+      final.est <- ate.vals
     } else if (type == "HT"){
-      final.est <- estimand[1]
+      final.est <- ate.vals[1]
     } else if (type == "Hajek"){
-      final.est <- estimand[2]
+      final.est <- ate.vals[2]
     } else if (type == "OW"){
-      final.est <- estimand[3]
+      final.est <- ate.vals[3]
     }
   }
 
   # return final estimate and choice of lambda
   res <- list(
-    estimate = final.est,
-    lambda = lambda.final
+    ate = final.est,
+    lambda = fit$lambda[[1]]
   )
   return(res)
 }

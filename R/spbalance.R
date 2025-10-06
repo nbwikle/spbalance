@@ -5,19 +5,19 @@
 ###   spatial confounding.
 
 parseFormula <- function(form){
-  # Helper function to parse a formula object and determine what 
+  # Helper function to parse a formula object and determine what
   #   model components to "balance".
   # Input
   #   form: a formulat object
   # Output
   #   A list splitting the formula into a parametric, spline, and krr component.
-  
+
   ### 1. Parse formula
-  
+
   # specials attribute indicates which terms are smooth / krr
-  tf <- terms.formula(form, specials=c("s", "krr")) 
+  tf <- terms.formula(form, specials=c("s", "krr"))
   # labels of the model terms
-  terms <- attr(tf, "term.labels") 
+  terms <- attr(tf, "term.labels")
 
   nt <- length(terms) # how many terms?
   pf <- "~"          # start of parametric model formula
@@ -27,34 +27,34 @@ parseFormula <- function(form){
   } else {
     rf <- "~"
     krrf <- "~"
-  } 
-  
+  }
+
   ### tells you which formula terms match "s" or "krr"
-  sp <- attr(tf, "specials")$s  # array of indices of smooth terms 
+  sp <- attr(tf, "specials")$s  # array of indices of smooth terms
   krrp <- attr(tf, "specials")$krr  # array of indices of krr terms
-  
+
   ### deals with offset (not applicable to balancing weights)
   off <- attr(tf, "offset") # location of offset in formula
-  if (!is.null(off)){ 
+  if (!is.null(off)){
     # have to remove the offset from this index list
-    sp[sp > off] <- sp[sp > off] - 1 
+    sp[sp > off] <- sp[sp > off] - 1
     krrp[krrp > off] <- krrp[krrp > off] - 1
   }
-  
+
   ns <- length(sp) # number of smooths
-  nkrr <- length(krrp)  # number of krr terms 
+  nkrr <- length(krrp)  # number of krr terms
   ks <- 1; kp <- 1; kkern <- 1 # counters for terms in the 2 formulae
   kcentered <- TRUE
-  
+
   if (nt){
-    
+
     for (i in 1:nt){
       if (ks <= ns && sp[ks] == i + 1){
         # it's a smooth
         st <- eval(parse(text = terms[i]))
         if (ks > 1 || kp > 1) {
           # add to smooth formula
-          rf <- paste(rf, "+", terms[i], sep = "") 
+          rf <- paste(rf, "+", terms[i], sep = "")
         } else {
           rf <- paste(rf, terms[i], sep = "")
         }
@@ -62,14 +62,14 @@ parseFormula <- function(form){
       } else if (kkern <= nkrr && krrp[kkern] == i + 1){
         # it's a krr term
         krrt <- eval(parse(text = terms[i]))
-        
+
         if (!krrt$cent){
           kcentered <- FALSE
         }
-        
+
         if (kkern > 1) {
           # add to krr formula
-          krrf <- paste(krrf, "+", terms[i], sep = "") 
+          krrf <- paste(krrf, "+", terms[i], sep = "")
         } else {
           krrf <- paste(krrf, terms[i], sep = "")
         }
@@ -78,13 +78,13 @@ parseFormula <- function(form){
         # parametric term
         if (kp > 1) {
           # add to parametric formula
-          pf <- paste(pf, "+", terms[i], sep = "") 
+          pf <- paste(pf, "+", terms[i], sep = "")
         } else {
           pf <- paste(pf, terms[i], sep = "")
         }
         if (ks > 1 || kp > 1) {
           # add to smooth formula
-          rf <- paste(rf, "+", terms[i], sep = "") 
+          rf <- paste(rf, "+", terms[i], sep = "")
         } else {
           rf <- paste(rf, terms[i], sep="")
         }
@@ -92,7 +92,7 @@ parseFormula <- function(form){
       }
     }
   }
-  
+
   if (nkrr == nt){
     pf <- paste(pf, "1", sep = "")
     rf <- paste(rf, "1", sep = "")
@@ -102,7 +102,7 @@ parseFormula <- function(form){
   } else if (ns + nkrr == nt){
     pf <- paste(pf, "1", sep = "")
   }
-  
+
   ### 2. Store parametric, krr, and smooth terms in a list
 
   # return parsed formula
@@ -124,7 +124,7 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
   # Formats a kernel ridge regression (KRR) formula term into a 'krr.spec' object.
   # Input
   #   kern: type of RKHS kernel
-  #   kp: number of KRR terms
+  #   kp: kernel parameter (range parameter)
   #   var.inds: index of which variables should be included in KRR term
   #   centered: Boolean indicating if KRR should be centered at zero
   #   scale: should KRR term be scaled to have max = 1?
@@ -132,10 +132,10 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
   #   nf: number of RFF features
   # Output
   #   An object of class 'krr.spec'
-  
+
   if (is.null(var.inds)){
     # variable names included in formula
-    vars <- as.list(substitute(list(...)))[-1]  
+    vars <- as.list(substitute(list(...)))[-1]
     d <- length(vars)
     # collect term names
     term <- deparse(vars[[1]], backtick = TRUE, width.cutoff = 500)
@@ -149,18 +149,18 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
         term[i] <- deparse(vars[[i]], backtick = TRUE, width.cutoff = 500)
         if (term[i] == "."){
           stop("krr(.) cannot be combined with other terms")
-        } 
+        }
       }
     }
     for (i in 1:d){
       term[i] <- attr(terms(reformulate(term[i])), "term.labels")
     }
-    
+
     # check that there are no repeated terms
     if (length(unique(term)) != d){
       stop("Repeated variables as arguments of krr are not permitted")
     }
-    
+
     # recreate krr call
     full.call <- paste("krr(", term[1], sep = "")
     if (d > 1){
@@ -173,29 +173,29 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
     term <- NULL
     label <- NULL
   }
-  
+
   # check that kernel function is correctly specified
   if ((kern != "SE") && (kern != "Exp")){
     stop("Kernel must be one of 'SE' or 'Exp'")
   }
-  
+
   # check that kernel parameter(s) are allowed
   if (kp <= 0){
     stop("Kernel parameter must be > 0")
   }
-  
+
   # return as a list
   ret <- list(
-    term = term, 
-    kernel = kern, 
-    k.params = kp, 
-    x.inds = var.inds, 
-    cent = centered, 
-    scale = scale, 
-    rff = rff, 
+    term = term,
+    kernel = kern,
+    k.params = kp,
+    x.inds = var.inds,
+    cent = centered,
+    scale = scale,
+    rff = rff,
     n.features = nf,
     label = label
-  )  
+  )
   class(ret) <- paste("krr.spec", sep = "")
   ret
 }
@@ -208,11 +208,11 @@ spBalance <- function(
   ...
 ){
   # Estimates balancing weights for a given formula, including parametric,
-  #   spline, and/or KRR terms. 
+  #   spline, and/or KRR terms.
   # Input
   #   formula: a formula term, eg, 'y ~ x1 + s(x2)', where 's(...)' adopts the
   #     spline formula's used in the mgcv package. Kernel ridge regression
-  #     terms are also permissible, using 
+  #     terms are also permissible, using
   #     'krr(
   #       x1, ..., xp, # variables to include in kernel evaluation
   #       kern = "SE", # type of kernel; must be one of 'SE' or 'Exp'
@@ -225,7 +225,7 @@ spBalance <- function(
   #   fit.gam: Boolean indicating if GAM model should be fitted in mgcv; default is 'FALSE'
   #   pen.int: Boolean indicating if the intercept should be penalized; default is 'FALSE'
   #   tuning: indicates how the tuning parameter should be chosen; options include
-  #     cv.score: 
+  #     cv.score:
   #     cv.grad:
   #     coefvar:
   #     max.bal:
@@ -239,13 +239,13 @@ spBalance <- function(
   # Output
   #   A list containing estimated parameter values, estimated propensity scores,
   # chosen tuning parameter (lambda), and tuning parameter selection details.
-  
+
   # fit model with specific lambda
   full.fit <- spBalFit(
     formula = formula,
     data = data,
-    lambda = lambda, 
-    opt.params = opt.params, 
+    lambda = lambda,
+    opt.params = opt.params,
     init.params = init.params,
     fit.gam = fit.gam,
     pen.int = pen.int
@@ -255,24 +255,24 @@ spBalance <- function(
   res <- full.fit
   res$tuning <- tuning
   res$tuning.details <- NULL
-  
+
   # treatment
   treat <- data[,all.vars(formula)[1]]
 
   # select lambda via CV
   if ((tuning == "cv.score") | (tuning == "cv.grad") | (tuning == "all")){
-    
+
     cv.res <- cvLambda(
       kfold = folds,
-      formula = formula, 
-      data = data, 
-      opt.params = opt.params, 
+      formula = formula,
+      data = data,
+      opt.params = opt.params,
       lambda.vals = lambda,
       type = tuning,
       fit.gam = fit.gam,
       pen.int = pen.int
     )
-    
+
     if ((tuning == "cv.score") | (tuning == "cv.grad")){
       l.choice <- which(lambda == cv.res$lambda[1])
       res$par <- full.fit$par[,l.choice]
@@ -283,35 +283,35 @@ spBalance <- function(
       }
     } else if (tuning == "all"){
       l.cv.all <- c(
-        which(lambda == cv.res$lambda[[1]]), 
+        which(lambda == cv.res$lambda[[1]]),
         which(lambda == cv.res$lambda[2])
-      )  
+      )
       l.cv.details <- lapply(cv.res$cv, colMeans)
       names(l.cv.details) <- c("cv.score", "cv.grad")
     }
   }
-    
+
   # select lambda via coefficent of variation
   if ((tuning == "coefvar") | (tuning == "all")){
-    
+
     coefv.res <- list()
-    
+
     for (j in 1:length(coefvar.r)){
       coefv.res[[j]] <- coefVar(
-        z = treat, 
-        pi.vals = full.fit$pi.hat, 
+        z = treat,
+        pi.vals = full.fit$pi.hat,
         lambda = lambda,
         ratio = coefvar.r[j]
-      )    
+      )
     }
-    
+
     l.coef.all <- rep(0, length(coefvar.r))
     l.coef.details <- coefv.res[[1]][[2]]
     for (k in 1:length(coefvar.r)){
       l.coef.all[k] <- which(lambda == coefv.res[[k]][[1]])
     }
     names(l.coef.all) <- paste("cvr", coefvar.r, sep = "")
-    
+
     if (tuning == "coefvar"){
       res$par <- full.fit$par[,l.coef.all]
       res$pi.hat <- full.fit$pi.hat[,l.coef.all]
@@ -324,15 +324,15 @@ spBalance <- function(
 
   # select lambda via setting balance to a specific threshold
   if ((tuning == "max.bal") | (tuning == "all")){
-    
+
     mbal <- maxBal(
-      fit = full.fit, z = treat, data = data, 
+      fit = full.fit, z = treat, data = data,
       max.diff = bal.diff, return.fit = FALSE
     )
-    
+
     l.bal <- which(lambda == mbal$lambda)
     l.bal.details <- mbal$max.smd
-    
+
     if (tuning == "max.bal"){
       res$par <- full.fit$par[,l.bal]
       res$pi.hat <- full.fit$pi.hat[,l.bal]
@@ -342,7 +342,7 @@ spBalance <- function(
       }
     }
   }
-  
+
   # use minimum lambda value
   if (tuning == "min"){
     l.min <- which(lambda == min(lambda))
@@ -359,10 +359,10 @@ spBalance <- function(
 
   # compile results
   if (tuning == "all"){
-    
+
     l.vals <- c(l.cv.all, l.coef.all, l.bal, l.min)
     names(l.vals) <- c("cv.score", "cv.grad", paste("cvr-", coefvar.r, sep = ""), "max.bal", "min")
-    
+
     # results
     res$par <- full.fit$par[,l.vals]
     res$pi.hat <- full.fit$pi.hat[,l.vals]
@@ -370,7 +370,7 @@ spBalance <- function(
     colnames(res$par) <- names(l.vals)
     colnames(res$pi.hat) <- names(l.vals)
     names(res$lambda) <- names(l.vals)
-    
+
     # return details (for debugging)
     if (!hide.details){
       res$tuning.details <- list(
@@ -379,9 +379,9 @@ spBalance <- function(
         max.bal = l.bal.details,
         min = l.min.details
       )
-    }    
-    
-  } 
+    }
+
+  }
   # return fitted model
   return(res)
 }
@@ -390,8 +390,8 @@ spBalance <- function(
 spBalFit <- function(
   formula, data = list(), lambda, init.params = NULL, fit.gam = FALSE, pen.int = FALSE,
   opt.params = list(tol = 1e-7, max.iter = 100, alpha = 0.5, beta = 0.5),...
-){ 
-  # Estimate covariate balancing propensity scores for a given formula and 
+){
+  # Estimate covariate balancing propensity scores for a given formula and
   #   vector of tuning parameter values (lambda).
   # Input
   #   formula: a formula object similar to that used by 'lm' or 'mgcv';
@@ -409,31 +409,31 @@ spBalFit <- function(
   # of optimization procedure, a parsed formula object, 'gam' terms (if used),
   # 'krr' terms (if used), dimensionality of each model term, and the type
   # of terms specified in the formula (intercept, fixed, smooth, krr).
-  
+
   ### 1. parse formula for "krr" and "smooth" (i.e., "s") terms:
   parseform <- parseFormula(formula)
-  
+
   # treatment (aka, the response)
   treat <- data[, all.vars(formula)[1]]
   # spline formula
-  spline.f <- terms.formula(parseform$smf, specials=c("s")) 
+  spline.f <- terms.formula(parseform$smf, specials=c("s"))
   # krr formula
   krr.f <- terms.formula(parseform$krrf, specials = c("k"))
   # labels of the model terms
-  spline.terms <- attr(spline.f, "term.labels") 
+  spline.terms <- attr(spline.f, "term.labels")
   krr.terms <- attr(krr.f, "term.labels")
-  
+
   ### 2. Construct basis and penalty matrices for each formula term
-  basis <- list() 
+  basis <- list()
   penalty <- list()
   term.type <- list()
   s.dims <- list()
-  
+
   # (i) spline terms
   if (length(spline.terms) > 0){
     # extract spline info using mgcv::gam()
     gam.obj <- gam(spline.f, family = binomial, data = data, fit = fit.gam, ...)
-    
+
     # basis functions
     if (fit.gam){
       spline.basis <- predict(gam.obj, type = "lpmatrix")
@@ -442,9 +442,9 @@ spBalFit <- function(
       spline.basis <- gam.obj$X # predict(gam.fit, type = "lpmatrix")
       colnames(spline.basis) <- gam.obj$term.names
     }
-    
+
     ### collect basis functions into a list
-        
+
     # number of fixed effects (including intercept)
     n.fixed <- length(all.vars(gam.obj$pterms))
     n.comb <- ncol(spline.basis)
@@ -465,7 +465,7 @@ spBalFit <- function(
       penalty[[2]] <- diag(1, n.fixed - 1)
       s.dims[[2]] <- 2:n.fixed
       term.type[[2]] <- "fixed"
-    } 
+    }
 
     # spline terms
     if (n.comb > n.fixed){
@@ -501,14 +501,14 @@ spBalFit <- function(
       term.type[[1]] <- "intercept"
     }
   }
-  
+
   # (ii) krr terms
-  
+
   # number of krr terms
   n.krr <- length(krr.terms)
   n.s <- length(basis)
   krr.obj <- list()
-  
+
   if (n.krr > 0){
 
     for (k in 1:n.krr){
@@ -517,7 +517,7 @@ spBalFit <- function(
       # create krr structures
       krr.k <- krrCreation(krr.obj = krr.t, data = data)
       krr.obj[[k]] <- krr.k
-      
+
       # index
       s.dims[[k + n.s]] <- max(unlist(s.dims), na.rm = TRUE) + 1:ncol(krr.k$basis)
       # basis functions
@@ -534,19 +534,19 @@ spBalFit <- function(
   } else{
     krr.obj <- NULL
   }
-  
+
   ### 3. Create final basis and penalty matrices
-  
+
   # na.col <- which(is.na(unlist(s.dims)))
   basis.full <- do.call(cbind, basis)
   n.theta <- ncol(basis.full)
-  
+
   penalty.full <- matrix(0, nrow = n.theta, ncol = n.theta)
   for (k in 1:length(penalty)){
     dims.k <- s.dims[[k]]
     penalty.full[dims.k, dims.k] <- penalty[[k]]
   }
-  
+
   ### 4. Estimate theta.hat for given basis and penalty matrices
   all.types <- unique(unlist(term.type))
   krr.only <- FALSE
@@ -559,7 +559,7 @@ spBalFit <- function(
       krr.only <- TRUE
     }
   }
-  
+
   # repeat estimation for all given values of lambda
   n.l <- length(lambda)
   theta.m <- matrix(data = NA_real_, nrow = n.theta, ncol = n.l)
@@ -567,13 +567,13 @@ spBalFit <- function(
   colnames(theta.m) <- colnames(pi.hat) <- paste("l=", lambda, sep = "")
   convergence <- rep(0, n.l)
   counts <- list()
-  
+
   theta.k <- init.params
   for (k in 1:n.l){
     fit.k <- spbalWeights(
-      theta = theta.k, 
+      theta = theta.k,
       z = treat, X = basis.full, P = penalty.full, lambda = lambda[k],
-      opt.params = opt.params, krr.only = krr.only, 
+      opt.params = opt.params, krr.only = krr.only,
       centered = parseform$kcentered
     )
     theta.k <- fit.k$theta
@@ -582,7 +582,7 @@ spBalFit <- function(
     convergence[k] <- fit.k$convergence
     counts[[k]] <- fit.k$counts
   }
-  
+
   # return results for different lambda values
   results <- list(
     par = theta.m,
@@ -596,7 +596,7 @@ spBalFit <- function(
     dims = s.dims,
     terms = term.type
   )
-  
+
   return(results)
 }
 
@@ -607,7 +607,7 @@ spbalWeights <- function(theta = NULL, z, X, P, lambda, opt.params, krr.only = F
   # Input
   #   theta: initial parameter values; default is NULL
   #   z: treatment vector (assumed to be binary)
-  #   X: design matrix 
+  #   X: design matrix
   #   P: penalty matrix
   #   lambda: tuning parameter
   #   opt.params: arguments for 'optim' function call
@@ -615,18 +615,18 @@ spbalWeights <- function(theta = NULL, z, X, P, lambda, opt.params, krr.only = F
   #     if so, will use more efficient 'balanceKRRalg(.)' function
   #   centered: Boolean indicating if KRR term has been centered at zero
   # Output
-  #   A list containing parameter estimates, propensity score estimates, 
-  # optim convergence results, and number of optimization iterations until 
+  #   A list containing parameter estimates, propensity score estimates,
+  # optim convergence results, and number of optimization iterations until
   # until convergence ('counts').
-  
+
   # initialize theta
   if (is.null(theta)){
     theta.0 <- rep(0, ncol(X))
   } else {
     theta.0 <- theta
   }
-  
-  
+
+
   if (krr.only){
     # use KRR algorithm if KRR is only term in model
     fit <- balanceKRRalg(
@@ -659,39 +659,39 @@ balanceKRRalg <- function(
   theta, z, X, P, lambda, centered = TRUE,
   params = list(tol = 1e-7, max.iter = 20, alpha = 0.5, beta = 0.5, pen.fixed = FALSE)
 ){
-  # Implements iterative Newton's method for fitting balancing weights to 
+  # Implements iterative Newton's method for fitting balancing weights to
   #   a single KRR term.
   # Input
   #   theta: initial parameter values; default is NULL
   #   z: treatment vector (assumed to be binary)
-  #   X: design matrix 
+  #   X: design matrix
   #   P: penalty matrix
   #   lambda: tuning parameter
   #   centered: Boolean indicatin if KRR term is centered at zero
   #   params: arguments for optimization procedure
   #   pen.fixed: Boolean indicating if fixed effects should be penalized
   # Output
-  #   A list containing parameter estimates, convergence results, and number 
+  #   A list containing parameter estimates, convergence results, and number
   # of Fisher scoring iterations ('counts').
-  
+
   # initialize variables
   n.r <- nrow(X)
   change <- Inf
   k <- 1
-  
+
   # initialize theta
   theta.k <- theta
-  
+
   # rescale lambda
   lambda.t <- lambda / n.r
-  
+
   if (centered){
     Sigma <- P[-1,-1]
   }
 
   # objective function
   L.k <- balanceObjFun(z, X, theta.k, lambda.t, P)
-  
+
   while(change > params$tol){
     if (k == params$max.iter){
       change <- 0
@@ -708,16 +708,16 @@ balanceKRRalg <- function(
         pi.val <- expit(X %*% theta.k)
         z.new <- as.vector(X %*% theta.k + ((z - pi.val) / pi.val / (1 - pi.val)))
         M.val <- X + diag(n.r * lambda.t, nrow(X))
-        tp <- solve(M.val, z.new) 
+        tp <- solve(M.val, z.new)
       }
-      
+
       # Determine if objective was met:
       L.new <- balanceObjFun(z, X, tp, lambda.t, P)
       L.diff <- L.new - L.k
-    
+
       D.mat <- crossprod(X, ((z - pi.val) / pi.val / (1 - pi.val))) / n.r - lambda.t * (P %*% theta.k)
       penalty <- crossprod(D.mat, (tp - theta.k))
-      
+
       if (L.diff > -params$alpha * penalty){
         linesearch <- TRUE
         t.val <- params$beta
@@ -725,20 +725,20 @@ balanceKRRalg <- function(
         theta.new <- tp
         linesearch <- FALSE
       }
-  
+
       # Backtracking line search
       while(linesearch){
         theta.new <- (1 - t.val) * theta.k + t.val * tp
         L.new <- balanceObjFun(z, X, theta.new, lambda.t, P)
         L.diff <- L.new - L.k
-        
+
         if (L.diff > -params$alpha * t.val * penalty){
           t.val <- t.val * params$beta
         } else {
           linesearch <- FALSE
         }
       }
-    
+
       # Assess convergence:
       change <- sqrt(sum((theta.new - theta.k)^2))
       theta.k <- theta.new
@@ -746,7 +746,7 @@ balanceKRRalg <- function(
       k <- k + 1
     }
   }
-  
+
   if (k < params$max.iter){
     list(
       par = c(theta.k),
@@ -783,7 +783,7 @@ balanceObjFun <- function(y, X, theta, lambda = 0, P = NULL){
   #   P: penalty matrix; default is NULL (no penalty)
   # Output
   #   The estimated balancing score (i.e., objective function).
-  
+
   n <- length(y)
   X.theta <- X %*% theta
   score <- sum(y * (X.theta - exp(-X.theta)) - (1-y)*(X.theta + exp(X.theta)) - 1) / n
@@ -795,9 +795,8 @@ balanceObjFun <- function(y, X, theta, lambda = 0, P = NULL){
   }
 }
 
-# Defines the loss function for a given spline call; returns Inf if pi = 0 or 1
 lossFunction <- function(theta, z, X, P, lambda = 0){
-  # Evaluates loss function; returns Inf if any propensity scores are estimated 
+  # Evaluates loss function; returns Inf if any propensity scores are estimated
   #   to be exactly 0 or 1.
   # Input
   #   theta: parameter vector
@@ -807,7 +806,7 @@ lossFunction <- function(theta, z, X, P, lambda = 0){
   #   lambda: tuning parameter; default is 0 (no penalty)
   # Output
   #   Loss function evaluated for specific theta vector.
-  
+
   # initialize variables
   n.r <- nrow(X)
   # rescale lambda
@@ -834,12 +833,12 @@ gradFunction <- function(theta, z, X, P, lambda = 0){
   #   lambda: tuning parameter; default is 0 (no penalty)
   # Output
   #   Loss function gradient for a given theta.
-  
+
   # initialize variables
   n.r <- nrow(X)
   # rescale lambda
   lambda.t <- lambda / n.r
-  
+
   pi.hat <- expit(X %*% theta)
   new.z <- (z - pi.hat) / pi.hat / (1 - pi.hat)
   grad.calc <- -crossprod(X, new.z) / n.r + lambda.t * (P %*% theta)
@@ -851,7 +850,7 @@ gradFunction <- function(theta, z, X, P, lambda = 0){
 krrCreation <- function(krr.obj, data){
   # Takes a krr object and returns covariance matrix or RFF approximation.
   # Input
-  #   krr.obj: a kernel ridge regression (krr) object; created when formula 
+  #   krr.obj: a kernel ridge regression (krr) object; created when formula
   #     was originally parsed.
   #   data: data frame containing all variables used in the analysis
   # Output
@@ -859,16 +858,16 @@ krrCreation <- function(krr.obj, data){
   # covariate matrix (X), Z (sampled random fourier features),
   # w (frequency samples for RFF implementation), b (shift parameters in RFF
   # implementation).
-  
+
   # 1. create X matrix
   if (is.null(krr.obj$term)){
     # use x.index formulation
     X <- data[,krr.obj$x.inds]
   } else {
     # use terms to create X matrix
-    X <- data[,krr.obj$term] 
+    X <- data[,krr.obj$term]
   }
-  
+
   # 2. standardize X
   if (krr.obj$scale){
     x.m <- scale(X)
@@ -879,34 +878,34 @@ krrCreation <- function(krr.obj, data){
   # 3. distance matrix
   d.mat <- as.matrix(dist(x.m, diag = TRUE, upper = TRUE))
   Z.m <- NULL; omega <- NULL; b <- NULL
-  
+
   # 4. create covariance matrix
   if (krr.obj$rff){
     # uses random fourier features
     r.features <- featureGen(
-      n.features = krr.obj$n.features, X = x.m, 
+      n.features = krr.obj$n.features, X = x.m,
       k.params = krr.obj$k.params, type = krr.obj$kernel
     )
     Z.m <- r.features$Z
     omega <- r.features$w
     b <- r.features$b
-    
+
     # basis functions
     if (krr.obj$cent){
       # center kernel
       basis <- base::scale(Z.m, scale = FALSE)
     } else {
       basis <- Z.m
-    }                     
+    }
     # penalty matrix
     penalty <- diag(ncol(basis))
   } else {
     # full covariance matrix
     basis <- kernelEval(
-      d.mat, k.params = krr.obj$k.params, 
+      d.mat, k.params = krr.obj$k.params,
       type = krr.obj$kernel, centered = krr.obj$cent
     )
-    
+
     # penaltymatrix
     penalty <- basis
   }
@@ -928,14 +927,14 @@ kernelEval <- function(d, k.params, type = "SE", centered = TRUE){
   # Evaluates kernel matrix for a given distance matrix.
   # Input
   #   d: distance matrix
-  #   k.params: kernel parameters (range (aka length scale) parameter for 
+  #   k.params: kernel parameters (range (aka length scale) parameter for
   #     "SE" and "Exp"; range and smoothness for "Matern")
   #   type: one of "SE", "Exp", or "Matern"
   #   centered: whether to center the KRR term at 0.
   # Output
   #   the kernel matrix
-  
-  
+
+
   if (type == "SE"){
     K.m <- exp(-d^2 / 2 / k.params)
   } else if (type == "Exp"){
@@ -943,7 +942,7 @@ kernelEval <- function(d, k.params, type = "SE", centered = TRUE){
   } else if (type == "Matern"){
     # rho <- tuning[1]
     # nu <- tuning[2]
-    # 
+    #
     # term1 <- 2^(1-nu) / gamma(nu)
     # term2 <- (2 * sqrt(nu) * abs(d) / rho)^(nu)
     # term3 <- besselK(2 * sqrt(nu) * abs(d) / rho, nu = nu)
@@ -952,9 +951,9 @@ kernelEval <- function(d, k.params, type = "SE", centered = TRUE){
   }
   if (centered){
     mat.dim <- nrow(K.m)
-    K.m <- K.m - 
-      matrix(colMeans(K.m), nrow = mat.dim, ncol = mat.dim, byrow = TRUE) - 
-      matrix(colMeans(K.m), nrow = mat.dim, ncol = mat.dim) + 
+    K.m <- K.m -
+      matrix(colMeans(K.m), nrow = mat.dim, ncol = mat.dim, byrow = TRUE) -
+      matrix(colMeans(K.m), nrow = mat.dim, ncol = mat.dim) +
       matrix(mean(colMeans(K.m)), nrow = mat.dim, ncol = mat.dim)
     # One.m <- matrix(1, nrow = mat.dim, ncol = mat.dim) / One.m
     # K.m <- K.m - One.m %*% K.m - K.m %*% One.m + One.m %*% (K.m %*% One.m)
@@ -968,7 +967,7 @@ featureGen <- function(n.features, X, k.params, type = "SE"){
   # Input
   #   n.features: number of rff's to generate
   #   X: covariate matrix used to evaluate distance
-  #   k.params: kernel parameters (range (aka length scale) parameter for 
+  #   k.params: kernel parameters (range (aka length scale) parameter for
   #     "SE" and "Exp"
   #   type: one of "SE" or "Exp"
   # Output
@@ -983,10 +982,10 @@ featureGen <- function(n.features, X, k.params, type = "SE"){
     X.m <- matrix(X, nrow = length(X), ncol = 1)
     x.dim = 1
   }
-  
+
   if (type == "SE"){
     fourier.var <- 1 / k.params[1]
-    omega <- matrix(rnorm(n = n.features * x.dim, mean = 0, sd = sqrt(fourier.var)), 
+    omega <- matrix(rnorm(n = n.features * x.dim, mean = 0, sd = sqrt(fourier.var)),
          nrow = n.features, ncol = x.dim, byrow = TRUE)
   } else if (type == "Exp"){
     # sample from multivariate normal
@@ -999,14 +998,14 @@ featureGen <- function(n.features, X, k.params, type = "SE"){
     # create frequency samples from multivariate t distribution with 1 degree of freedom
     omega <- mvn.samps / sqrt(chi.samps)
   }
-  
+
   # sample shift parameter, b
   b <- runif(n = n.features, min = 0, max = 2 * pi)
-  
+
   # create features
   f.mu <- X.m %*% t(omega) + rep(b, each = nrow(X.m))
   Z.x <- sqrt(2) * cos(f.mu) / sqrt(n.features)
-  
+
   # return features (and sampled omega and b values)
   list(
     Z = Z.x,

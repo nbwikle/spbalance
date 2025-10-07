@@ -19,11 +19,13 @@ library(raster)         # 3.5.15
 library(reticulate)     # 1.28
 library(sf)
 library(Matrix)
+library(spmodel)
 
 source(here::here("R", "dgp", "data-gen-1.R"))
 source(here::here("R", "spbalance.R"))
 source(here::here("R", "tuning-params.R"))
 source(here::here("R", "ate-est.R"))
+source(here::here("R", "aIPTW.R"))
 
 # source(here::here("R", "aIPTW.R"))
 
@@ -124,3 +126,49 @@ ateEst(out = sim.df$outcome, trt = sim.df$treat, pr.trt = spb.cvr$pi.hat)$ate
 #   coefvar.r = 0.9
 # )
 # iptw.bal$ate
+
+#--------------------------------------------------#
+#--- 5. ATE estimation using outcome regression ---#
+#--------------------------------------------------#
+
+or.est <- outcomeATE(
+  formula = outcome ~ 1 + treat,
+  data = sim.df,
+  trt.var = 'treat',
+  type = "spmodel",
+  keep.fit = TRUE,
+  # remaining arguments are passed to 'splm' from 'spmodel' package
+  spcov_type = "exponential",
+  xcoord = x,
+  ycoord = y,
+  local = TRUE
+)
+
+or.est$ate
+
+
+#---------------------------------------------------------------------#
+#--- 6. ATE estimation using augmented IPTW with balancing weights ---#
+#---------------------------------------------------------------------#
+
+aiptw.est <- aiptw(
+  form.out = outcome ~ 1 + treat,
+  form.trt = treat ~ s(x, y, k = 500),
+  data = sim.df,
+  trt.var = 'treat',
+  type.out = "spmodel",
+  type.trt = "bal",
+  bal.input = list(
+    lambda = c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 5, 10),
+    tuning = "coefvar",
+    opt.params = list(tol = 1e-7, max.iter = 1000, alpha = 0.5, beta = 0.5)
+  ),
+  # inputs to 'splm':
+  spcov_type = "exponential",
+  xcoord = x,
+  ycoord = y,
+  local = TRUE
+)
+
+aiptw.est$ate
+

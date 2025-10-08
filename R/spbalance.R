@@ -203,7 +203,8 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
 
 spBalance <- function(
   formula, data, lambda, init.params = NULL, fit.gam = FALSE, pen.int = FALSE,
-  tuning = "none", folds = 10, coefvar.r = 0.9, bal.diff = 0.1, hide.details = TRUE,
+  tuning = "none", folds = 10, grad.norm = "L2", coefvar.r = 0.9, bal.diff = 0.1,
+  hide.details = TRUE,
   opt.params = list(tol = 1e-7, max.iter = 100, alpha = 0.5, beta = 0.5),
   ...
 ){
@@ -225,13 +226,10 @@ spBalance <- function(
   #   fit.gam: Boolean indicating if GAM model should be fitted in mgcv; default is 'FALSE'
   #   pen.int: Boolean indicating if the intercept should be penalized; default is 'FALSE'
   #   tuning: indicates how the tuning parameter should be chosen; options include
-  #     cv.score:
-  #     cv.grad:
-  #     coefvar:
-  #     max.bal:
-  #     min:
-  #     all:
+  #     `cv.score`, `cv.grad`, `coefvar`, `max.bal`, `min`, `all`
   #   folds: number of CV folds (if using a CV method for tuning parameter selection)
+  #   grad.norm: type of Lp norm used when evaluating CV with gradient of score;
+  #       options are 'L1', 'L2', or 'Linf'
   #   coefvar.r: ratio used in "coefvar" tuning parameter selection; scalar or vector valued
   #   bal.diff: maximum standardized mean difference allowed when choosing tuning param wiht "max.bal"
   #   hide.details: Boolean indicating if tuning parameter selection details should be saved
@@ -269,6 +267,7 @@ spBalance <- function(
       opt.params = opt.params,
       lambda.vals = lambda,
       type = tuning,
+      norm = grad.norm,
       fit.gam = fit.gam,
       pen.int = pen.int
     )

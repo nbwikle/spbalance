@@ -54,7 +54,13 @@ source(here::here("R", "dgp", "cov-mat-creation.R"))
 
 ### Background
 
-The primary focus of this work is to develop inverse probability of treatment weighting (IPTW) estimators that can be used in settings with unmeasured spatial confounding. Let $(Y_s, A_s, X_s)$ denote data observed at location $s \in \mathcal{D}$, where $Y_s$ is the outcome variable, $A_s$ is a binary treatment variable, and $X_s$ is a vector of observed confounders. Similarly, let $Y_s(1)$ and $Y_s(0)$ denote the *potential outcomes* that would have been observed at location $s$ had that unit been assigned treatment or control, respectively. We will make standard identifying assumptions, SUTVA and positivity, however, we assume that exchangeability holds conditional on the observed confounders, $X_s$, as well as an unobserved confounder, $U_s$. That is,$$ \{Y(1), Y(0)\} \perp\!\!\!\!\perp A \; | \; X, U $$Because $U_s$ is unobserved, estimating a causal effect in such settings is challenging. However, if we are willing to assume that $U_s$ has some additional structure, in particular, that it can be represented as a smooth function of space, we may have some hope in estimating an average causal effect.
+The primary focus of this work is to develop inverse probability of treatment weighting (IPTW) estimators that can be used in settings with unmeasured spatial confounding. Let $(Y_s, A_s, X_s)$ denote data observed at location $s \in \mathcal{D}$, where $Y_s$ is the outcome variable, $A_s$ is a binary treatment variable, and $X_s$ is a vector of observed confounders. Similarly, let $Y_s(1)$ and $Y_s(0)$ denote the *potential outcomes* that would have been observed at location $s$ had that unit been assigned treatment or control, respectively. We will make standard identifying assumptions, SUTVA and positivity, however, we assume that exchangeability holds conditional on the observed confounders, $X_s$, as well as an unobserved confounder, $U_s$. That is,
+
+\begin{equation}
+\{Y(1), Y(0)\} \Perp A | X, U.
+\end{equation}
+
+Because $U_s$ is unobserved, estimating a causal effect in such settings is challenging. However, if we are willing to assume that $U_s$ has some additional structure, in particular, that it can be represented as a smooth function of space, we may have some hope in estimating an average causal effect.
 
 In particular, we will focus on estimating the average treatment effect (ATE), $\tau = E\big[Y(1) - Y(0)\big]$, using an IPTW estimator. Let $e_s(x) = Pr(A_s = 1 | X_s = x)$ denote the propensity score at location $s \in \mathcal{D}$. The standard IPTW estimator is given as
 

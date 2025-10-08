@@ -3,9 +3,6 @@
 
 ### Simulate from Tec et al.'s data generating process.
 
-type = "GP1"
-method = "svd"
-
 simDecomps <- function(type, method = "svd"){
   # Creates covariance matrices for fast simulation of GPs. Matrices are generated
   #   at grid sizes 10x10, 25x25, 50x50, and 100x100. Corresponding spectral

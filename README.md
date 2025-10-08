@@ -29,7 +29,7 @@ The code has been tested with R version 4.4.1, "Race for Your Life." The followi
 
 The Tec et al. (2023) simulation study uses functions from the `scipy.signal` module to perform image convolutions. Performing the simulation study in R requires the installation of the `reticulate` package; see [here](https://rstudio.github.io/reticulate/) for installation instructions.
 
-**Important:** Several R scripts (`spbal-tprs-demo.R`, `spbal-krr-demo.R`) there exists a local Python virtual environment named `r-reticulate`. To use these functions, either create this virtual environment or modify instances of the following code to match your preferred virtual environment.
+**Important:** Several R scripts (`spbal-tprs-demo.R`, `spbal-krr-demo.R`) require the existence of a local Python virtual environment named `r-reticulate`. To use these functions, either create this virtual environment or modify instances of the following code to match your preferred virtual environment.
 
 ```{r}
 # indicate that we want to use a specific Python virtualenv
@@ -84,7 +84,7 @@ is the covariate balancing tailored loss proposed by Zhao (2019), $J_{\boldsymbo
 
 ### Using `spBalance`
 
-Spatial balancing weights can be estimated using the `spBalance` function (the source code for this function is largely contained in `spbalance.R`). The function contains several important arguments, including
+Spatial balancing weights can be estimated using the `spBalance` function (the source code for this function is largely contained in `./R/spbalance.R`). The function contains several important arguments, including
 
 1.  `formula`
 
@@ -155,29 +155,29 @@ ateEst(out = zhao.sim$out, trt = zhao.sim$trt, pr.trt = fit.rff$pi.hat)$ate
 
 Ideally, $\lambda$ should be selected in a data-driven fashion. The following selection approaches have been implemented.
 
--   `tuning = cv.score`: returns the $\lambda$ which minimizes the cross-validated balancing score, 
+-   `tuning = cv.score`: returns the $\lambda$ which minimizes the cross-validated balancing score,
 
-$$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} -S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) $$ 
+$$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} -S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) $$
 
 across $J$ CV folds. The number of CV folds, $J$, is specified using `folds`.
 
--   `tuning = cv.grad`: returns the $\lambda$ which minimizes the $L_p$ norm of the *gradient* of the balancing score across $J$ CV folds, 
+-   `tuning = cv.grad`: returns the $\lambda$ which minimizes the $L_p$ norm of the *gradient* of the balancing score across $J$ CV folds,
 
-$$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} \Vert \nabla S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) \Vert_{p}. $$ 
+$$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} \Vert \nabla S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) \Vert_{p}. $$
 
 Again, specify the number of CV folds using `folds` and the type of $L_p$ norm using `grad.norm` (options are $p = 1$, $2$, or $\infty$).
 
--   `tuning = coefvar`: returns the $\lambda$ with respect to the coefficient of variation of the balancing weights. In particular, define the coefficient of variation of the weights, 
+-   `tuning = coefvar`: returns the $\lambda$ with respect to the coefficient of variation of the balancing weights. In particular, define the coefficient of variation of the weights,
 
-$$ \hat{w}_{\lambda} \equiv w(A_i, \hat{e}_{i, \lambda}) = \frac{A_i}{\hat{e}_i} + \frac{1 - A_i}{1 - \hat{e}_i},$$ 
+$$ \hat{w}_{\lambda} \equiv w(A_i, \hat{e}_{i, \lambda}) = \frac{A_i}{\hat{e}_i} + \frac{1 - A_i}{1 - \hat{e}_i},$$
 
-as 
+as
 
 $$ \text{CV}(\lambda) = \frac{sd(\hat{w}_{\lambda}) }{\text{mean}(\hat{w})}. $$
 
-Choose the largest $\lambda$ such that coefficient of variation of its associated weights is greater than or equal to some specified proportion of the maximum coefficient of variation across all $\lambda$ values. In other words, choose 
+Choose the largest $\lambda$ such that coefficient of variation of its associated weights is greater than or equal to some specified proportion of the maximum coefficient of variation across all $\lambda$ values. In other words, choose
 
-$$ \lambda^{*} = \text{max} \{ \lambda : CV(\lambda) \geq \rho CV_{max} \}, $$ 
+$$ \lambda^{*} = \text{max} \{ \lambda : CV(\lambda) \geq \rho CV_{max} \}, $$
 
 where $CV_{max} = \text{max}_{\lambda} CV(\lambda)$ and $\rho \in (0,1)$ controls the desired coefficient of variation ratio. The choice of $\rho$ is can be specified with `coefvar.r`; the default is $\rho = 0.9$.
 
@@ -191,6 +191,44 @@ The implementation of these methods can be found in `R/tuning-params.R`.
 
 ## Simulation Studies
 
-All data have been downloaded from publicly available databases. To aid in reproducability efforts, the data have been archived for download on Zenodo (doi = ); they require X GB of space within the local directory.
+### Data Generating Process 1 (Tec et al. (2023))
 
-**Intervention Data**
+We considered the performance of the spatial balancing weight estimators using data simulated according to the data generating process described in Tec et al. (2023). A full description of the simulation steps can be found in Tec et al. (2023). For convenience, we provide a brief overview of the simulation procedure.
+
+**Overview**
+
+-   Simulate $L_s \sim GP(0, k^{(1)}_{\theta_1})$, where $k^{(1)}_{\theta_1}$ is a squared exponential covariance function with range parameter $\theta_1 = 5.1$:
+
+$$ k^{(1)}_{\theta_1}(d) = \exp\bigg\{ \frac{-d^2}{2 \theta_1^2} \bigg\}.$$
+
+-   Let $(X_{1}, X_{2})_s = \nabla L_s$. These are meant to represent observed "wind vector fields".
+
+-   Define $\boldsymbol{\mu} = K_1 * \mathbf{X}_1 + K_2 * \mathbf{X}_2$, where $K_j$, $j = 1,2$ are specially designed convolution kernels. In other words, $\mu_s$ is a function of both the locally observed $X_s$ as well as a smoothed version of the covariates in the region surrounding $s$.
+
+-   Simulate treatment assignment from $A_s \sim \text{Bernoulli}(p_s)$, where $p_s = \text{expit}(\mu_s)$.
+
+-   Simulate outcome observations as
+
+$$ y_s = \tau A_s - \sqrt{0.5} \mu_s + \eta_s + \epsilon_s, $$
+
+where
+
+$$ \eta_s \sim GP(0, \frac{1}{4} k^{(2)}_{\theta_2}), $$
+
+$$ \epsilon_s \sim N(0, \sigma^2 = \frac{1}{4}), $$
+
+and $\tau = 0.1$. In particular, the error consists of a spatial random effect, $\eta_s$, and a measurement error term, $\epsilon_s$. The covariance function of the spatial random effect is user-specified, and can be one of squared exponential, exponential, or Matern:
+
+$$ k^{\text{SE}}_{\theta_2}(d) = \exp\bigg\{ \frac{-d^2}{2 \theta_2^2} \bigg\} $$
+
+$$ k^{\text{Exp}}_{\theta_2}(d) = \exp\bigg\{ \frac{-d}{\theta_2} \bigg\} $$
+
+$$ k^{\text{Matern}}_{\theta_2}(d) = \frac{2^{1 - \nu}}{\Gamma(\nu)} \bigg( \sqrt{8\nu} \frac{d}{\rho} \bigg)^{\nu} K_{\nu}\bigg( \sqrt{8\nu} \frac{d}{\rho} \bigg), $$
+
+where $K_{\nu}$ is the modified Bessel function of the second kind (order $\nu$), and $\theta_2 = (\nu, \rho)$ consists of the smoothness and range parameters, respectively.
+
+-   Finally, a variation of the above procedure considers a nonlinear transformation of $\mathbf{X}_1$, $\mathbf{X_2}$:
+
+$$\boldsymbol{\mu} = K_1 * \text{sign}(\mathbf{X}_1) + K_2 * \text{sign}(\mathbf{X}_2) $$
+
+**Implementation**

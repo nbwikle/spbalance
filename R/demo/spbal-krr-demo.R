@@ -7,18 +7,21 @@
 #--- 1. Load packages and R scripts       ---#
 #--------------------------------------------#
 
+# packages
 library(here)           # 1.0.1
-library(terra)          # 1.7.29
-library(geoR)           # 1.9.2
-library(mgcv)           # 1.8.39
-library(MASS)           # 7.3.55
-library(matrixStats)    # 0.61.0
-library(RColorBrewer)   # 1.1.2
-library(raster)         # 3.5.15
-library(reticulate)     # 1.28
-library(sf)
-library(Matrix)
+library(terra)          # 1.8.54
+library(geoR)           # 1.9.4
+library(mgcv)           # 1.9.1
+library(MASS)           # 7.3.61
+library(matrixStats)    # 1.5.0
+library(RColorBrewer)   # 1.1.3
+library(raster)         # 3.6.30
+library(reticulate)     # 1.37.0
+library(sf)             # 1.0.16
+library(Matrix)         # 1.7.0
+library(spmodel)        # 0.8.0
 
+# source code
 source(here::here("R", "dgp", "data-gen-1.R"))
 source(here::here("R", "spbalance.R"))
 source(here::here("R", "tuning-params.R"))

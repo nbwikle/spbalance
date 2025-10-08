@@ -31,7 +31,7 @@ The Tec et al. (2023) simulation study uses functions from the `scipy.signal` mo
 
 **Important:** Several R scripts (`spbal-tprs-demo.R`, `spbal-krr-demo.R`) require the existence of a local Python virtual environment named `r-reticulate`. To use these functions, either create this virtual environment or modify instances of the following code to match your preferred virtual environment.
 
-```{r}
+```r
 # indicate that we want to use a specific Python virtualenv
 use_virtualenv("r-reticulate")
 ```
@@ -42,7 +42,7 @@ The Tec et al. simulation study repeatedly simulates from a Gaussian process (GP
 
 To create the matrices, run the following R code **one time**.
 
-```{r}
+```r
 # create and save SVD of GP covariance matrices
 library("here")
 source(here::here("R", "dgp", "cov-mat-creation.R"))
@@ -100,7 +100,7 @@ Spatial balancing weights can be estimated using the `spBalance` function (the s
 
 Two code demos illustrate the use of `spBalance` on simulated data sets. The first demo, `R/demo/spbal-tprs-demo.R`, simulates data from the Tec et al. (2023) setting and compare average treatment effect estimates using weights where the propensity score is modeled as (i) a generalized additive model with a thin-plate regression spline (TPRS) to account for the unmeasured spatial confounder, and (ii) a covariate balancing propensity score estimate in which balance is obtained with respect to the TPRS basis functions. The key function call is shown below. Notice that the TPRS is specified with `treat ~ s(x, y, k = 500)`.
 
-```{r}
+```r
 # select tuning parameter using coefficient of variation method
 spb.cvr <- spBalance(
   formula = treat ~ s(x, y, k = 500),
@@ -121,7 +121,7 @@ ateEst(out = sim.df$outcome, trt = sim.df$treat, pr.trt = spb.cvr$pi.hat)$ate
 
 The second demo, `R/demo/spbal-krr-demo.R`, simulates data similar to the procedure in Zhao (2019). Here, balance is obtained with respect to an RKHS kernel basis function, $k(\mathbf{x}_i, \mathbf{x}_j)$. The demo code illustrates how this can be accomplished using `spBalance`. In particular, `trt ~ krr(x, kern = "SE", kp = 5, centered = FALSE)` specifies that we want to model $f(x)$ using a kernel ridge regression with a squared exponential (i.e., gaussian) kernel function, with lengh-scale (i.e., range) parameter set to $5$; the function is not centered at 0, so we do not need an intercept.
 
-```{r}
+```r
 # Fit model
 fit.krr <- spBalance(
   formula = trt ~ krr(x1, x2, x3, x4, x5, kern = "SE", kp = 5, centered = FALSE),
@@ -137,7 +137,7 @@ ateEst(out = zhao.sim$out, trt = zhao.sim$trt, pr.trt = fit.krr$pi.hat)$ate
 
 The KRR optimization is reasonably fast when the data size $n$ is small, however, it becomes computationaly prohibitive as $n$ grows large. To contend with this issue, `spBalance` includes a low-rank approximation of the KRR kernel using random Fourier features (RFF, see Rahimi and Recht (2007)). The `krr` term is the same as before, but with it now includes two additional inputs: `rff = TRUE`, indicating that the RFF approximation should be used, and `nf`, which controls the number of random features used in the approximation.
 
-```{r}
+```r
 fit.rff <- spBalance(
   formula = trt ~ krr(x1, x2, x3, x4, x5, kern = "SE", kp = 5, 
                       centered = FALSE, rff = TRUE, nf = 250),
@@ -232,3 +232,9 @@ where $K_{\nu}$ is the modified Bessel function of the second kind (order $\nu$)
 $$\boldsymbol{\mu} = K_1 * \text{sign}(\mathbf{X}_1) + K_2 * \text{sign}(\mathbf{X}_2) $$
 
 **Implementation**
+
+A simulation study was performed to compare the performance of several estimators of the ATE on data generated from DGP1, including a naive difference-in-means estimator, IPTW estimators using propensity scores fitted with via maximum likelihood estimation or with the balancing score objective function, an outcome regression estimator of the ATE, and augmented IPTW (aIPTW) estimators that efficiently combine the outcome regression and weighting estimators. The simulation study is implemented
+
+```console
+Rscript ./R/dgp/dgp1-sim-study.R Matern 3 100 0 100 F 1000 > ./output/dgp1/sim-output.Rout 2>&1
+```

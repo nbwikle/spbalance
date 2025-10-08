@@ -66,7 +66,7 @@ where $\hat{e}_s$ is the estimated propensity score at location $s \in \mathcal{
 
 Alternatively, we might consider estimating inverse propensity score weights that *explicitly* balances both the observed covariates, $X_s$, as well as the unobserved confounder, $U_s$. To do so, we assume that $U_s$ can be well-approximated by a spatial function, $f(s)$, where $f$ is assumed to belong to some class of spatially smooth smooth functions, $\mathcal{F}$. A variety of function spaces might be considered, including Gaussian processes and reproducing kernel Hilbert spaces (RKHS). Importantly, in many of these cases, $f(s)$ can be represented as a linear combination of *spatial basis functions*, $\{\phi_j(\cdot) : j = 1, 2, \dots \}$, where $f \in \mathcal{F}$ implies that $f(s) = \sum_{j \geq 1} a_j \phi_j(s)$. Each basis function $\phi_j(\cdot)$ generates a particular spatially-varying feature describing some component of the underlying variation in $f(s)$, and $f(s)$ is simply a linear combination of these features. Consequently, if we can find IPT weights that empirically balance the observed confounders, $X_s$, *and* the basis functions, $\phi_j(\cdot)$, then we will have empirically balanced both $X_s$ and $U_s$.
 
-We can accomplish this task by fitting $\hat{e}_s$ using the tailored loss function of Zhao (2019). To do so, let $(1, X_s, \phi_1(s), \dots, \phi_J(s))$
+We can accomplish this task by fitting $\hat{e}_s$ using the tailored loss function of Zhao (2019). To do so, let $\tilde{x}_s = (1, X_s, \phi_1(s), \dots, \phi_J(s))$
 
 <!--- $\tilde{\mathbf{x}}_s = (1, X_s, \phi_1(s), \dots, \phi_J(s))$ --->
 

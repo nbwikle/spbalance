@@ -253,7 +253,7 @@ There are several command line arguments that must be specified:
 
 -   `arg6`: whether the simulated $\boldsymbol{\mu}$ is nonlinear (`T`) or not (`F`)
 
--   `arg7`: an option argument specifying the number of random samples to keep from the $n \times n$ grid. For example, if this is 1000, then only 1000 random samples are kept from the $n \times n$ grid. Tec et al. refer to this as the "sparse" setting. **Do not include** this argument if you want to keep data for the entire $n \times n$ grid..
+-   `arg7`: an option argument specifying the number of random samples to keep from the $n \times n$ grid. For example, if this is 1000, then only 1000 random samples are kept from the $n \times n$ grid. Tec et al. refer to this as the "sparse" setting. **Do not include this argument if you want to keep data for the entire $n \times n$ grid.**
 
 As an example,
 
@@ -263,4 +263,4 @@ Rscript ./R/dgp/dgp1-sim-study.R SE 3 100 0 25 F
 
 would perform a simulation study where data are simulated from DGP1 on a $100 \times 100$ grid (resolution $1 \times 1$), with the outcome dependence simulated as a GP with a squared exponential covariance that decays to a correlation of $0.1$ when the distance between two units is 10. The random number generator would be set to `0 + sim.i`, where `sim.i` is the $i$th simulation. The number of simulations performed is 25; for each simulation, the ATE is estimated using a variety of possible estimators. Finally, we simulate from the setting with a linear $\boldsymbol{\mu}$.
 
-The **results** from the simulation study are saved as an `.RDS` file in `/output/dgp1/`. The file size will depend on the number of simulations that are performed, but typically the size is small ($<0.5$ MB). Implementing the simulation study on the $100 \times 100$ grid can take a considerable amount of time. It is recommended you parallelize this task on an HPC, if available.
+**The results from the simulation study** are saved as an `.RDS` file in `/output/dgp1/`. The file size will depend on the number of simulations that are performed, but typically the size is small ($<0.5$ MB). Implementing the simulation study on the $100 \times 100$ grid can take a considerable amount of time. It is recommended you parallelize this task on an HPC, if available.

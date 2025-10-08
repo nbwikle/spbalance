@@ -74,17 +74,17 @@ Alternatively, we might consider estimating inverse propensity score weights tha
 
 We can accomplish this task by fitting $\hat{e}_s$ using the tailored loss function of Zhao (2019). To do so, let $\tilde{\mathbf{x}}_s = (1, X_s, \phi_1(s), \dots, \phi_J(s))$ denote the collection of observed confounders and spatial basis functions evaluated at location $s \in \mathcal{D}$. The propensity score model, $e_s(\boldsymbol{\alpha})$, is then assumed to have the following functional form, $\text{logit}(e_s) = \tilde{\mathbf{x}}_s' \boldsymbol{\alpha}$, and the model coefficients are estimated using the following objective function:
 
-$$ \mathcal{M}(\boldsymbol{\alpha}) = S_n(\boldsymbol{\alpha}) - \lambda J_{\boldsymbol{\alpha}}(e),$$ 
+$$ \mathcal{M}(\boldsymbol{\alpha}) = S_n(\boldsymbol{\alpha}) - \lambda J_{\boldsymbol{\alpha}}(e),$$
 
-where 
+where
 
-$$ S_n(\boldsymbol{\alpha}) =  \bigg(\log \frac{e_s(\boldsymbol{\alpha})}{1 - e_s(\boldsymbol{\alpha})} - \frac{1}{e_s(\boldsymbol{\alpha})} \bigg) A_s + \bigg( \log \frac{1 - e_s(\boldsymbol{\alpha})}{e_s(\boldsymbol{\alpha})} - \frac{1}{1 - e_s(\boldsymbol{\alpha})} \bigg) (1 - A_s) $$
+$$ S_n(\boldsymbol{\alpha}) =  \frac{1}{n} \sum_{i =1 }^{n}\bigg(\log \frac{e_s(\boldsymbol{\alpha})}{1 - e_s(\boldsymbol{\alpha})} - \frac{1}{e_s(\boldsymbol{\alpha})} \bigg) A_s + \bigg( \log \frac{1 - e_s(\boldsymbol{\alpha})}{e_s(\boldsymbol{\alpha})} - \frac{1}{1 - e_s(\boldsymbol{\alpha})} \bigg) (1 - A_s) $$
 
-is the covariate balancing tailored loss proposed by Zhao (2019), $J_{\boldsymbol{\alpha}}(e)$ is a penalty on the function class of $e(\boldsymbol{\alpha})$, and $\lambda \geq 0$ is a tuning parameter controlling the degree of penalization. Notably, it can be shown that when $\lambda = 0$, the weighted difference in means of $\tilde{\mathbf{x}}_s$ between treatment and control locations is exactly zero, implying that the _any_ function in the span of $\tilde{\mathbf{X}}$ has been empirically balanced, including $f(s)$. To prevent overfitting, $\lambda$ can be chosen to control the degree of smoothness of $\text{logit}(e_s)$.
+is the covariate balancing tailored loss proposed by Zhao (2019), $J_{\boldsymbol{\alpha}}(e)$ is a penalty on the function class of $e(\boldsymbol{\alpha})$, and $\lambda \geq 0$ is a tuning parameter controlling the degree of penalization. Notably, it can be shown that when $\lambda = 0$, the weighted difference in means of $\tilde{\mathbf{x}}_s$ between treatment and control locations is exactly zero, implying that the *any* function in the span of $\tilde{\mathbf{X}}$ has been empirically balanced, including $f(s)$. To prevent overfitting, $\lambda$ can be chosen to control the degree of smoothness of $\text{logit}(e_s)$.
 
 ### Using `spBalance`
 
-Spatial IPTW balancing weights can be estimated using the `spBalance` function (the source code for this function is largely contained in `spbalance.R`). The function contains several important arguments, including
+Spatial balancing weights can be estimated using the `spBalance` function (the source code for this function is largely contained in `spbalance.R`). The function contains several important arguments, including
 
 1.  `formula`
 
@@ -96,26 +96,78 @@ Spatial IPTW balancing weights can be estimated using the `spBalance` function (
 
 3.  `tuning`
 
--   The
+-   The method used to select the tuning parameter, $\lambda$, from the list of plausible values specified with `lambda`. Options include `cv.score`, `cv.grad`, `coefvar`, `max.bal`, `min`, and `all`. A description of each method is included below.
+
+Two code demos illustrate the use of `spBalance` on simulated data sets. The first demo, `R/demo/spbal-tprs-demo.R`, simulates data from the Tec et al. (2023) setting and compare average treatment effect estimates using weights where the propensity score is modeled as (i) a generalized additive model with a thin-plate regression spline (TPRS) to account for the unmeasured spatial confounder, and (ii) a covariate balancing propensity score estimate in which balance is obtained with respect to the TPRS basis functions. The key function call is shown below. Notice that the TPRS is specified with `treat ~ s(x, y, k = 500)`.
 
 ```{r}
-spBalance <- function(
-  formula, data, lambda, init.params = NULL, fit.gam = FALSE, pen.int = FALSE,
-  tuning = "none", folds = 10, coefvar.r = 0.9, bal.diff = 0.1, hide.details = TRUE,
-  opt.params = list(tol = 1e-7, max.iter = 100, alpha = 0.5, beta = 0.5
-){
-  ...
-  
-  'krr(
-  #       x1, ..., xp, # variables to include in kernel evaluation
-  #       kern = "SE", # type of kernel; must be one of 'SE' or 'Exp'
-  #       kp = p # number of variables included before "kern" input,
-  #       centered = FALSE # boolean indicating if the KRR term should be centered at zero
-  #     )'
+# select tuning parameter using coefficient of variation method
+spb.cvr <- spBalance(
+  formula = treat ~ s(x, y, k = 500),
+  data = sim.df,
+  lambda = c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 5, 10),
+  tuning = "coefvar",
+  hide.details = TRUE,
+  opt.params = list(tol = 1e-7, max.iter = 1000, alpha = 0.5, beta = 0.5)
+)
+
+# chosen lambda:
+spb.cvr$lambda
+
+# ATE estimate (true value = 0.1)
+ateEst(out = sim.df$outcome, trt = sim.df$treat, pr.trt = spb.cvr$pi.hat)$ate
 }
 ```
 
+The second demo, `R/demo/spbal-krr-demo.R`, simulates data similar to the procedure in Zhao (2019). Here, balance is obtained with respect to an RKHS kernel basis function, $k(\mathbf{x}_i, \mathbf{x}_j)$. The demo code illustrates how this can be accomplished using `spBalance`. In particular, `trt ~ krr(x, kern = "SE", kp = 5, centered = FALSE)` specifies that we want to model $f(x)$ using a kernel ridge regression with a squared exponential (i.e., gaussian) kernel function, with lengh-scale (i.e., range) parameter set to $5$; the function is not centered at 0, so we do not need an intercept.
+
+```{r}
+# Fit model
+fit.krr <- spBalance(
+  formula = trt ~ krr(x1, x2, x3, x4, x5, kern = "SE", kp = 5, centered = FALSE),
+  data = sim.k,
+  lambda = c(0.1, 0.25, 0.5, 0.75, 1, 2, 5, 10),
+  tuning = "coefvar", coefvar.r = 0.5,
+  hide.details = TRUE,
+  opt.params = list(tol = 1e-7, max.iter = 1000, alpha = 0.5, beta = 0.5)
+)
+fit.krr$lambda
+ateEst(out = zhao.sim$out, trt = zhao.sim$trt, pr.trt = fit.krr$pi.hat)$ate
+```
+
+The KRR optimization is reasonably fast when the data size $n$ is small, however, it becomes computationaly prohibitive as $n$ grows large. To contend with this issue, `spBalance` includes a low-rank approximation of the KRR kernel using random Fourier features (RFF, see Rahimi and Recht (2007)). The `krr` term is the same as before, but with it now includes two additional inputs: `rff = TRUE`, indicating that the RFF approximation should be used, and `nf`, which controls the number of random features used in the approximation.
+
+```{r}
+fit.rff <- spBalance(
+  formula = trt ~ krr(x1, x2, x3, x4, x5, kern = "SE", kp = 5, 
+                      centered = FALSE, rff = TRUE, nf = 250),
+  data = sim.k,
+  lambda = c(0.1, 0.25, 0.5, 0.75, 1, 2, 5, 10),
+  tuning = "coefvar", coefvar.r = 0.5,
+  hide.details = TRUE,
+  opt.params = list(tol = 1e-7, max.iter = 1000, alpha = 0.5, beta = 0.5)
+)
+fit.rff$lambda
+ateEst(out = zhao.sim$out, trt = zhao.sim$trt, pr.trt = fit.rff$pi.hat)$ate
+```
+
 ### Tuning parameter selection
+
+Ideally, $\lambda$ should be selected in a data-driven fashion. The following selection approaches have been implemented.
+
+-   `tuning = cv.score`: returns the $\lambda$ which minimizes the cross-validated balancing score, $$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} -S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) $$ across $J$ CV folds. The number of CV folds, $J$, is specified using `folds`.
+
+-   `tuning = cv.grad`: returns the $\lambda$ which minimizes the $L_p$ norm of the *gradient* of the balancing score across $J$ CV folds, $$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} \Vert \nabla S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) \Vert_{p}. $$ Again, specify the number of CV folds using `folds` and the type of $L_p$ norm using `grad.norm` (options are $p = 1$, $2$, or $\infty$).
+
+-   `tuning = coefvar`: returns the $\lambda$ with respect to the coefficient of variation of the balancing weights. In particular, define the coefficient of variation of the weights, $$ \hat{w}_{\lambda} \equiv w(A_i, \hat{e}_{i, \lambda}) = \frac{A_i}{\hat{e}_i} + \frac{1 - A_i}{1 - \hat{e}_i)},$$ as $$ \text{CV}(\lambda) = \frac{sd(\hat{w}_{\lambda}) }{\operatorname{mean}(\hat{w})}. $$ Choose the largest $\lambda$ such that coefficient of variation of its associated weights is greater than or equal to some specified proportion of the maximum coefficient of variation across all $\lambda$ values. In other words, choose $$ \lambda^{*} = \text{max} \{ \lambda : CV(\lambda) \geq \rho CV_{max} \}, $$ where $CV_{max} = \text{max}_{\lambda} CV(\lambda)$ and $\rho \in (0,1)$ controls the desired coefficient of variation ratio. The choice of $\rho$ is can be specified with `coefvar.r`; the default is $\rho = 0.9$.
+
+-   `tuning = max.bal`: returns the largest tuning parameter value such that the standardized difference in means for all model terms is less than some threshold. This threshold is specified using `bal.diff`.
+
+-   `tuning = min`: returns the propensity score for the smallest $\lambda$ that was specified in `lambda`.
+
+-   `tuning = all`: returns propensity score estimates using each of the previously mentioned methods. This is useful when comparing the performance of the selection method on simulated data or assessing the sensitivity of the ATE estimate under different selection methods.
+
+The implementation of these methods can be found in `R/tuning-params.R`.
 
 ## Simulation Studies
 

@@ -199,7 +199,7 @@ We considered the performance of the spatial balancing weight estimators using d
 
 -   Simulate $L_s \sim GP(0, k^{(1)}_{\theta_1})$, where $k^{(1)}_{\theta_1}$ is a squared exponential covariance function with range parameter $\theta_1 = 5.1$:
 
-$$ k^{(1)}_{\theta_1}(d) = \exp\bigg\{ \frac{-d^2}{2 \theta_1^2} \bigg\}.$$
+$$ k^{(1)}_{\theta_1}(d) = \exp\bigg( \frac{-d^2}{2 \theta_1^2} \bigg).$$
 
 -   Let $(X_{1}, X_{2})_s = \nabla L_s$. These are meant to represent observed "wind vector fields".
 
@@ -219,9 +219,9 @@ $$ \epsilon_s \sim N(0, \sigma^2 = \frac{1}{4}), $$
 
 and $\tau = 0.1$. In particular, the error consists of a spatial random effect, $\eta_s$, and a measurement error term, $\epsilon_s$. The covariance function of the spatial random effect is user-specified, and can be one of squared exponential, exponential, or Matern:
 
-$$ k^{\text{SE}}_{\theta_2}(d) = \exp\bigg\{ \frac{-d^2}{2 \theta_2^2} \bigg\} $$
+$$ k^{\text{SE}}_{\theta_2}(d) = \exp\bigg( \frac{-d^2}{2 \theta_2^2} \bigg) $$
 
-$$ k^{\text{Exp}}_{\theta_2}(d) = \exp\bigg\{ \frac{-d}{\theta_2} \bigg\} $$
+$$ k^{\text{Exp}}_{\theta_2}(d) = \exp\bigg( \frac{-d}{\theta_2} \bigg) $$
 
 $$ k^{\text{Matern}}_{\theta_2}(d) = \frac{2^{1 - \nu}}{\Gamma(\nu)} \bigg( \sqrt{8\nu} \frac{d}{\rho} \bigg)^{\nu} K_{\nu}\bigg( \sqrt{8\nu} \frac{d}{\rho} \bigg), $$
 

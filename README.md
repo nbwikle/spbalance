@@ -155,7 +155,11 @@ ateEst(out = zhao.sim$out, trt = zhao.sim$trt, pr.trt = fit.rff$pi.hat)$ate
 
 Ideally, $\lambda$ should be selected in a data-driven fashion. The following selection approaches have been implemented.
 
--   `tuning = cv.score`: returns the $\lambda$ which minimizes the cross-validated balancing score, $$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} -S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) $$ across $J$ CV folds. The number of CV folds, $J$, is specified using `folds`.
+-   `tuning = cv.score`: returns the $\lambda$ which minimizes the cross-validated balancing score, 
+
+$$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} -S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) $$ 
+
+across $J$ CV folds. The number of CV folds, $J$, is specified using `folds`.
 
 -   `tuning = cv.grad`: returns the $\lambda$ which minimizes the $L_p$ norm of the *gradient* of the balancing score across $J$ CV folds, $$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} \Vert \nabla S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) \Vert_{p}. $$ Again, specify the number of CV folds using `folds` and the type of $L_p$ norm using `grad.norm` (options are $p = 1$, $2$, or $\infty$).
 

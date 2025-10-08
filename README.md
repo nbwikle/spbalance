@@ -169,11 +169,11 @@ Again, specify the number of CV folds using `folds` and the type of $L_p$ norm u
 
 -   `tuning = coefvar`: returns the $\lambda$ with respect to the coefficient of variation of the balancing weights. In particular, define the coefficient of variation of the weights, 
 
-$$ \hat{w}_{\lambda} \equiv w(A_i, \hat{e}_{i, \lambda}) = \frac{A_i}{\hat{e}_i} + \frac{1 - A_i}{1 - \hat{e}_i)},$$ 
+$$ \hat{w}_{\lambda} \equiv w(A_i, \hat{e}_{i, \lambda}) = \frac{A_i}{\hat{e}_i} + \frac{1 - A_i}{1 - \hat{e}_i},$$ 
 
 as 
 
-$$ \text{CV}(\lambda) = \frac{sd(\hat{w}_{\lambda}) }{\operatorname{mean}(\hat{w})}. $$
+$$ \text{CV}(\lambda) = \frac{sd(\hat{w}_{\lambda}) }{\text{mean}(\hat{w})}. $$
 
 Choose the largest $\lambda$ such that coefficient of variation of its associated weights is greater than or equal to some specified proportion of the maximum coefficient of variation across all $\lambda$ values. In other words, choose 
 

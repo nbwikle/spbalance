@@ -74,11 +74,9 @@ where
 
 $$ S_n(\alpha) =  \bigg(\log \frac{e_s(\alpha)}{1 - e_s(\alpha)} - \frac{1}{e_s(\alpha)} \bigg) A_s + \bigg( \log \frac{1 - e_s(\alpha)}{e_s(\alpha)} - \frac{1}{1 - e_s(\alpha)} \bigg) (1 - A_s) $$
 
-is the covariate balancing tailored loss proposed by Zhao (2019), $J_{\alpha}(e)$ is a penalty on the function class of $e(\alpha)$, and $\lambda \geq 0$ is a tuning parameter controlling the degree of penalization. Notably, it can be shown that when $\lambda = 0$, the weighted difference in means of 
+is the covariate balancing tailored loss proposed by Zhao (2019), $J_{\alpha}(e)$ is a penalty on the function class of $e(\alpha)$, and $\lambda \geq 0$ is a tuning parameter controlling the degree of penalization. Notably, it can be shown that when $\lambda = 0$, the weighted difference in means of $\tilde{\mathbf{x}}_s$ between treatment and control locations is exactly zero, implying that the any function in the span of $\tilde{\mathbf{x}}_s$ has been empirically balanced, including 
 
-$\tilde{\mathbf{x}}_s$ between treatment and control locations is exactly zero, implying that the any function in the span of 
-
-$\tilde{\mathbf{x}}_s$ has been empirically balanced -- including $f(s) = \sum_{j \geq 1} a_j \phi_j(s)$. 
+$f(s) = \sum_{j \geq 1} a_j \phi_j(s)$. 
 
 To prevent overfitting, $\lambda$ and $J_{\alpha}(e)$ can be chosen to control the degree of smoothness of $\text{logit}(e_s)$.
 

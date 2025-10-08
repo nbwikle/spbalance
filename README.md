@@ -161,9 +161,25 @@ $$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} -S_n\big(
 
 across $J$ CV folds. The number of CV folds, $J$, is specified using `folds`.
 
--   `tuning = cv.grad`: returns the $\lambda$ which minimizes the $L_p$ norm of the *gradient* of the balancing score across $J$ CV folds, $$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} \Vert \nabla S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) \Vert_{p}. $$ Again, specify the number of CV folds using `folds` and the type of $L_p$ norm using `grad.norm` (options are $p = 1$, $2$, or $\infty$).
+-   `tuning = cv.grad`: returns the $\lambda$ which minimizes the $L_p$ norm of the *gradient* of the balancing score across $J$ CV folds, 
 
--   `tuning = coefvar`: returns the $\lambda$ with respect to the coefficient of variation of the balancing weights. In particular, define the coefficient of variation of the weights, $$ \hat{w}_{\lambda} \equiv w(A_i, \hat{e}_{i, \lambda}) = \frac{A_i}{\hat{e}_i} + \frac{1 - A_i}{1 - \hat{e}_i)},$$ as $$ \text{CV}(\lambda) = \frac{sd(\hat{w}_{\lambda}) }{\operatorname{mean}(\hat{w})}. $$ Choose the largest $\lambda$ such that coefficient of variation of its associated weights is greater than or equal to some specified proportion of the maximum coefficient of variation across all $\lambda$ values. In other words, choose $$ \lambda^{*} = \text{max} \{ \lambda : CV(\lambda) \geq \rho CV_{max} \}, $$ where $CV_{max} = \text{max}_{\lambda} CV(\lambda)$ and $\rho \in (0,1)$ controls the desired coefficient of variation ratio. The choice of $\rho$ is can be specified with `coefvar.r`; the default is $\rho = 0.9$.
+$$ \lambda^{*} = \text{arg min}_{\lambda} \frac{1}{J} \sum_{j = 1}^{J} \Vert \nabla S_n\big( \mathbf{Z}^{(j)} ; \hat{\boldsymbol{\alpha}}^{-(j)}_{\lambda} \big) \Vert_{p}. $$ 
+
+Again, specify the number of CV folds using `folds` and the type of $L_p$ norm using `grad.norm` (options are $p = 1$, $2$, or $\infty$).
+
+-   `tuning = coefvar`: returns the $\lambda$ with respect to the coefficient of variation of the balancing weights. In particular, define the coefficient of variation of the weights, 
+
+$$ \hat{w}_{\lambda} \equiv w(A_i, \hat{e}_{i, \lambda}) = \frac{A_i}{\hat{e}_i} + \frac{1 - A_i}{1 - \hat{e}_i)},$$ 
+
+as 
+
+$$ \text{CV}(\lambda) = \frac{sd(\hat{w}_{\lambda}) }{\operatorname{mean}(\hat{w})}. $$
+
+Choose the largest $\lambda$ such that coefficient of variation of its associated weights is greater than or equal to some specified proportion of the maximum coefficient of variation across all $\lambda$ values. In other words, choose 
+
+$$ \lambda^{*} = \text{max} \{ \lambda : CV(\lambda) \geq \rho CV_{max} \}, $$ 
+
+where $CV_{max} = \text{max}_{\lambda} CV(\lambda)$ and $\rho \in (0,1)$ controls the desired coefficient of variation ratio. The choice of $\rho$ is can be specified with `coefvar.r`; the default is $\rho = 0.9$.
 
 -   `tuning = max.bal`: returns the largest tuning parameter value such that the standardized difference in means for all model terms is less than some threshold. This threshold is specified using `bal.diff`.
 

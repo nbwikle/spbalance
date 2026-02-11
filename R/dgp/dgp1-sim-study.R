@@ -81,20 +81,21 @@ tecIPTW <- function(
 ){
 
   # collect results
-  results.iptw <- array(NA_real_, dim = c(n.sims, 3, 7))
+  results.iptw <- array(NA_real_, dim = c(n.sims, 3, 8))
   dimnames(results.iptw)[[1]] <- paste("sim-", sim.start + 1:n.sims, sep = "")
   dimnames(results.iptw)[[2]] <- c("HT", "Hajek", "OW")
-  dimnames(results.iptw)[[3]] <- c("naive", "oracle", "glm", "gam", "bal.cvr", "bal.mb", "bal.min")
+  dimnames(results.iptw)[[3]] <- c("naive", "oracle", "glm", "gam", "gam0",
+                                   "bal.cvr", "bal.mb", "bal.min")
 
   if (car.fit){
-    results.aiptw <- matrix(NA_real_, nrow = n.sims, ncol = 8)
+    results.aiptw <- matrix(NA_real_, nrow = n.sims, ncol = 9)
     rownames(results.aiptw) <- paste("sim-", sim.start + 1:n.sims, sep = "")
-    colnames(results.aiptw) <- c("out.gam", "aug.gbcvr", "aug.gbm", "aug.gg",
-                                 "out.car", "aug.cbcvr", "aug.cbm", "aug.cg")
+    colnames(results.aiptw) <- c("out.gam", "out.gam0", "aug.gbcvr", "aug.gbm",
+      "aug.gg", "out.car", "aug.cbcvr", "aug.cbm", "aug.cg")
   } else {
-    results.aiptw <- matrix(NA_real_, nrow = n.sims, ncol = 4)
+    results.aiptw <- matrix(NA_real_, nrow = n.sims, ncol = 5)
     rownames(results.aiptw) <- paste("sim-", sim.start + 1:n.sims, sep = "")
-    colnames(results.aiptw) <- c("out.gam", "aug.gbcvr", "aug.gbm", "aug.gg")
+    colnames(results.aiptw) <- c("out.gam", "out.gam0", "aug.gbcvr", "aug.gbm", "aug.gg")
   }
 
   for (k in 1:n.sims){
@@ -153,6 +154,16 @@ tecIPTW <- function(
     )
     results.iptw[k,,4] <- weight.gam$ate
 
+
+
+    ### 5b. estimate using MGCV with lambda = 0...
+
+    weight.gam0 <- ateGAM(
+      form = treat ~ s(x, y, k = n.knots, fx = TRUE),
+      data = sim.df, out = sim.df$outcome, est.type = "all"
+    )
+    results.iptw[k,,5] <- weight.gam0$ate
+
     ### 6. estimate using spatial balance
 
     # coefvar method
@@ -164,7 +175,7 @@ tecIPTW <- function(
       hide.details = TRUE,
       opt.params = list(tol = 1e-7, max.iter = 1000, alpha = 0.5, beta = 0.5)
     )
-    results.iptw[k,,5] <- ateEst(
+    results.iptw[k,,6] <- ateEst(
       out = sim.df$outcome, trt = sim.df$treat, pr.trt = spb.cvr$pi.hat
     )[[2]]
 
@@ -177,7 +188,7 @@ tecIPTW <- function(
       hide.details = TRUE,
       opt.params = list(tol = 1e-7, max.iter = 1000, alpha = 0.5, beta = 0.5)
     )
-    results.iptw[k,,6] <- ateEst(
+    results.iptw[k,,7] <- ateEst(
       out = sim.df$outcome, trt = sim.df$treat, pr.trt = spb.mb$pi.hat
     )[[2]]
 
@@ -190,13 +201,14 @@ tecIPTW <- function(
       hide.details = TRUE,
       opt.params = list(tol = 1e-7, max.iter = 1000, alpha = 0.5, beta = 0.5)
     )
-    results.iptw[k,,7] <- ateEst(
+    results.iptw[k,,8] <- ateEst(
       out = sim.df$outcome, trt = sim.df$treat, pr.trt = spb.min$pi.hat
     )[[2]]
 
 
     ### 7. Estimates using outcome models
 
+    # with penalty
     out.gam <- outcomeATE(
       formula = outcome ~ treat + s(x, y, k = 500),
       data = sim.df,
@@ -205,6 +217,19 @@ tecIPTW <- function(
       type = "gam"
     )
     results.aiptw[k,1] <- out.gam$ate
+
+
+    # no penalty (lambda = 0)
+    out.gam0 <- outcomeATE(
+      formula = outcome ~ treat + s(x, y, k = 500, fx = TRUE),
+      data = sim.df,
+      family = gaussian(),
+      trt.var = "treat",
+      type = "gam"
+    )
+
+    results.aiptw[k,2] <- out.gam0$ate
+
 
     if (car.fit){
       out.car <- outcomeATE(
@@ -225,25 +250,25 @@ tecIPTW <- function(
         rho.prop = 0.01,
         keep.fit = TRUE
       )
-      results.aiptw[k,5] <- out.car$ate
+      results.aiptw[k,6] <- out.car$ate
     }
 
     ### 8. Estimates using AIPTW
 
     # (i) gam, balancing (cvr)
-    results.aiptw[k,2] <- aiptwATE(
+    results.aiptw[k,3] <- aiptwATE(
       out = sim.df$outcome, trt = sim.df$treat, mu0 = out.gam$mu0,
       mu1 = out.gam$mu1, pi.hat = spb.cvr$pi.hat
     )
 
     # (ii) gam, balancing (min)
-    results.aiptw[k,3] <- aiptwATE(
+    results.aiptw[k,4] <- aiptwATE(
       out = sim.df$outcome, trt = sim.df$treat, mu0 = out.gam$mu0,
       mu1 = out.gam$mu1, pi.hat = as.vector(spb.min$pi.hat)
     )
 
     # (iii) gam, gam
-    results.aiptw[k,4] <- aiptwATE(
+    results.aiptw[k,5] <- aiptwATE(
       out = sim.df$outcome, trt = sim.df$treat, mu0 = out.gam$mu0,
       mu1 = out.gam$mu1, pi.hat = weight.gam$pi.hat
     )
@@ -251,19 +276,19 @@ tecIPTW <- function(
     if (car.fit){
 
       # (iv) car, balancing (cvr)
-      results.aiptw[k,6] <- aiptwATE(
+      results.aiptw[k,7] <- aiptwATE(
         out = sim.df$outcome, trt = sim.df$treat, mu0 = out.car$mu0,
         mu1 = out.car$mu1, pi.hat = spb.cvr$pi.hat
       )
 
       # (v) car, balancing (min)
-      results.aiptw[k,7] <- aiptwATE(
+      results.aiptw[k,8] <- aiptwATE(
         out = sim.df$outcome, trt = sim.df$treat, mu0 = out.car$mu0,
         mu1 = out.car$mu1, pi.hat = as.vector(spb.min$pi.hat)
       )
 
       # (vi) car, gam
-      results.aiptw[k,8] <- aiptwATE(
+      results.aiptw[k,9] <- aiptwATE(
         out = sim.df$outcome, trt = sim.df$treat, mu0 = out.car$mu0,
         mu1 = out.car$mu1, pi.hat = weight.gam$pi.hat
       )

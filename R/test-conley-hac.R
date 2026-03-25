@@ -35,11 +35,15 @@ testConleyHAC <- function(tol = 1e-8, verbose = TRUE) {
   .brute <- function(e, coords, h, kernel) {
     D <- as.matrix(dist(coords))
     u <- D / h
+    # Note: pmax() strips the dim attribute from a matrix, so we restore it
+    # afterwards. Using k * (k > 0) in place of pmax(0, k) is an alternative
+    # that preserves dims, but the explicit restoration is clearer.
     K <- switch(kernel,
       bartlett = pmax(0, 1 - u),
       uniform  = (u <= 1) * 1.0,
       wendland = { w <- pmax(0, 1 - u); w^4 * (4 * u + 1) }
     )
+    dim(K) <- dim(u)
     drop(e %*% K %*% e)
   }
 

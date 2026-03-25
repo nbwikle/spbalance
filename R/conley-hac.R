@@ -3,7 +3,7 @@
 
 ### Compute the Conley HAC spatial variance quantity
 ###   V = sum_i sum_j K(d_ij / h) * e_hat_i * e_hat_j
-### for Bartlett or Uniform kernel K.
+### for Bartlett, Uniform, or Wendland kernel K.
 ###
 ### Two implementations are provided:
 ###   conleyHAC_grid -- for data on a regular Euclidean grid (uses 2D FFT,
@@ -22,12 +22,24 @@
   # Evaluate spatial kernel K at u = d/h (elementwise).
   # Input
   #   u: non-negative numeric vector (distance / bandwidth)
-  #   kernel: "bartlett" or "uniform"
+  #   kernel: "bartlett", "uniform", or "wendland"
   # Output
   #   Numeric vector of kernel weights; zero wherever u > 1.
+  #
+  # Kernels:
+  #   Bartlett  K(u) = max(0, 1 - u)
+  #   Uniform   K(u) = 1(u <= 1)
+  #   Wendland  K(u) = max(0, 1-u)^4 * (4u + 1)
+  #     -- the Wendland C^2 function, positive definite in R^d for d <= 3.
+  #        Unlike Bartlett/Uniform, it is guaranteed to produce a positive
+  #        semi-definite weight matrix W in 2D, so V = e' W e >= 0 always.
 
   if (kernel == "bartlett") {
     pmax(0, 1 - u)
+  } else if (kernel == "wendland") {
+    w <- 1 - u
+    w[w < 0] <- 0
+    w^4 * (4 * u + 1)
   } else {
     as.numeric(u <= 1)
   }
@@ -38,7 +50,7 @@
 #------------------------------------------------------#
 
 conleyHAC_grid <- function(e_hat, coords, h,
-                           kernel = c("bartlett", "uniform")) {
+                           kernel = c("bartlett", "uniform", "wendland")) {
   # Compute V = sum_i sum_j K(d_ij/h) e_hat_i e_hat_j for data on a
   # regular Euclidean grid using 2D FFT-based autocorrelation.
   #
@@ -55,7 +67,7 @@ conleyHAC_grid <- function(e_hat, coords, h,
   #            columns are (x, y) and values must lie on a complete regular
   #            grid (uniform spacing in each dimension)
   #   h      : bandwidth (same units as coords)
-  #   kernel : "bartlett" (default) or "uniform"
+  #   kernel : "bartlett" (default), "uniform", or "wendland"
   # Output
   #   Scalar sum_i sum_j K(d_ij/h) e_hat_i e_hat_j
 
@@ -129,7 +141,7 @@ conleyHAC_grid <- function(e_hat, coords, h,
 #------------------------------------------------------#
 
 conleyHAC_sf <- function(e_hat, sf_obj, h,
-                         kernel = c("bartlett", "uniform")) {
+                         kernel = c("bartlett", "uniform", "wendland")) {
   # Compute V = sum_i sum_j K(d_ij/h) e_hat_i e_hat_j for point data
   # stored as an sf object.
   #
@@ -149,7 +161,7 @@ conleyHAC_sf <- function(e_hat, sf_obj, h,
   #   sf_obj : sf object with POINT geometry, length n; should be in a
   #            projected (planar) CRS so that Euclidean distances are valid
   #   h      : bandwidth in the CRS units of sf_obj
-  #   kernel : "bartlett" (default) or "uniform"
+  #   kernel : "bartlett" (default), "uniform", or "wendland"
   # Output
   #   Scalar sum_i sum_j K(d_ij/h) e_hat_i e_hat_j
 
@@ -194,7 +206,7 @@ conleyHAC_sf <- function(e_hat, sf_obj, h,
 #------------------------------------------------------#
 
 conleyHAC <- function(e_hat, coords, h,
-                      kernel = c("bartlett", "uniform"),
+                      kernel = c("bartlett", "uniform", "wendland"),
                       method = NULL) {
   # Compute the Conley HAC spatial variance quantity
   #   V = sum_i sum_j K(d_ij / h) * e_hat_i * e_hat_j
@@ -205,7 +217,7 @@ conleyHAC <- function(e_hat, coords, h,
   #   coords : n x 2 coordinate matrix for method = "grid" (evenly-spaced
   #            regular grid), or an sf object for method = "sf"
   #   h      : bandwidth
-  #   kernel : "bartlett" (default) or "uniform"
+  #   kernel : "bartlett" (default), "uniform", or "wendland"
   #   method : "grid" or "sf"; if NULL (default), detected automatically from
   #            the class of coords
   # Output

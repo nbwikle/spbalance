@@ -90,36 +90,43 @@ testConleyHAC <- function(tol = 1e-8, verbose = TRUE) {
   }
 
   #-----------------------------------------------------------------#
-  #--- 3. Two-point analytical results                           ---#
+  #--- 3. Analytical results on a 5x5 unit grid                 ---#
   #                                                                 #
-  # Two locations at distance d = 1, bandwidth h = 2, e = [1, -1]: #
-  #   V = K(0)*1^2 + K(0)*(-1)^2 + 2*K(d/h)*(1*-1)               #
-  #     = 2 - 2 * K(0.5)                                           #
-  #   Bartlett: K(0.5) = 0.5       -> V = 1.0                      #
-  #   Uniform:  K(0.5) = 1         -> V = 0.0                      #
-  #   Wendland: K(0.5) = (0.5)^4   #
-  #             * (4*0.5+1) = 3/16  -> V = 13/8 = 1.625            #
+  # Residuals: e_i = 1 for all i.  Bandwidth: h = 1.5.             #
+  # With constant residuals V = sum_{i,j} K(d_{ij}/h), so the      #
+  # exact answer depends only on how many ordered pairs fall in     #
+  # each distance class.                                            #
+  #                                                                 #
+  # Pair counts on a 5x5 unit grid for d <= 1.5:                   #
+  #   d = 0:       25  (self-pairs, i = j)                         #
+  #   d = 1:       80  (horizontal/vertical adjacent,              #
+  #                     4 * 4 + 4 * (4+1) + ... = 2*(4*5+5*4) )   #
+  #   d = sqrt(2): 64  (diagonal adjacent, 4*(m-1)^2 = 4*16)       #
+  #                     sqrt(2) ~ 1.414 < 1.5, so included         #
+  #   d = 2:       60  (2-step h/v), 2 > 1.5, not included         #
+  #                                                                 #
+  # Expected: V = 25*K(0) + 80*K(1/1.5) + 64*K(sqrt(2)/1.5)       #
+  #   Uniform:  25 + 80 + 64         = 169 (exact integer)         #
+  #   Bartlett: 25 + 80*(1/3) + 64*(1 - sqrt(2)/1.5)              #
+  #   Wendland: 25 + 80*K(2/3) + 64*K(sqrt(2)*2/3)                #
   #-----------------------------------------------------------------#
 
-  if (verbose) cat("--- Two-point analytical tests (d = 1, h = 2, e = [1, -1]) ---\n")
+  if (verbose) cat("--- Analytical results on 5x5 grid (e_i=1, h=1.5) ---\n")
 
-  coords2pt <- matrix(c(0, 0, 1, 0), nrow = 2, byrow = TRUE)
-  e2pt      <- c(1, -1)
-  h2pt      <- 2
-  u2pt      <- 1 / h2pt   # = 0.5
+  h_a    <- 1.5
+  e_ones <- rep(1, m5 * m5)
 
-  expected2pt <- list(
-    bartlett = 2 - 2 * pmax(0, 1 - u2pt),
-    uniform  = 2 - 2 * as.numeric(u2pt <= 1),
-    wendland = { w <- pmax(0, 1 - u2pt); 2 - 2 * w^4 * (4 * u2pt + 1) }
-  )
+  # Pair counts and distances derived from grid geometry
+  pair_dists  <- c(0, 1, sqrt(2))
+  pair_counts <- c(25L, 80L, 64L)
 
   for (kern in kernels) {
-    V   <- conleyHAC_grid(e2pt, coords2pt, h2pt, kern)
-    exp <- expected2pt[[kern]]
-    .record(.near(V, exp),
-            paste0("two-point analytical [", kern, "]"),
-            sprintf("V = %.10g, expected = %.10g", V, exp))
+    exp_v <- sum(pair_counts * .kernel_eval(pair_dists / h_a, kern))
+    V     <- conleyHAC_grid(e_ones, coords5, h_a, kern)
+    .record(.near(V, exp_v),
+            paste0("5x5 grid analytical [", kern, "]"),
+            sprintf("V = %.10g, expected = %.10g, diff = %.2e",
+                    V, exp_v, abs(V - exp_v)))
   }
 
   #-----------------------------------------------------------------#

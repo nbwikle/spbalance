@@ -11,7 +11,7 @@ testConleyHAC <- function(tol = 1e-8, verbose = TRUE) {
   # Input
   #   tol    : absolute tolerance for floating-point comparisons (default 1e-8)
   #   verbose: if TRUE, prints each test result (default TRUE)
-  force(tol)   # evaluate the promise now so .near() can close over it
+  # evaluate the promise now so .near() can close over it
   # Output
   #   Invisibly returns a list:
   #     results: named logical vector (TRUE = pass, FALSE = fail)

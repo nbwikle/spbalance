@@ -2,31 +2,39 @@
 ### Window subsampling for gridded raster data.
 
 spsubGrid <- function(
-  data, coord.names, block.l, kappa = 0
+  data, coord.names, block.l, kappa = 0,
+  pt.data = NULL, pt.coord.names = NULL
 ) {
   # Place overlapping subsampling windows (tiles) over a rectangular grid and
   # return the original-data indices of the points in each tile.
+  # Optionally, also returns the indices of point process observations
+  # (not on the grid) falling within each tile.
   #
   # Args:
-  #   data        : data.frame with gridded observations
-  #   coord.names : character(2), column names for the x and y coordinates
-  #   block.l     : integer (or integer vector), tile side length in grid cells
-  #   kappa       : overlap proportion in [0, 1).
-  #                   kappa = 0  -> non-overlapping tiles, step = block.l
-  #                   kappa > 0  -> step = max(1, round(block.l * (1 - kappa)))
-  #                 so neighbouring tiles share kappa * block.l cells on each side.
+  #   data          : data.frame with gridded observations
+  #   coord.names   : character(2), column names for the x and y coordinates
+  #   block.l       : integer (or integer vector), tile side length in grid cells
+  #   kappa         : overlap proportion in [0, 1).
+  #                     kappa = 0  -> non-overlapping tiles, step = block.l
+  #                     kappa > 0  -> step = max(1, round(block.l * (1 - kappa)))
+  #                   so neighbouring tiles share kappa * block.l cells on each side.
+  #   pt.data       : (optional) data.frame of point process observations
+  #   pt.coord.names: (optional) character(2), column names for x and y in pt.data
   #
   # Returns a list with:
   #   tiles  : named list (one element per block length) each containing
-  #     indices  : (block.l^2) x n.tiles integer matrix of row indices into data,
-  #                one column per tile, in column-major (y-first) order within tile
-  #     n.tiles  : total number of tiles
-  #     n.tiles.x: number of tiles in the x direction
-  #     n.tiles.y: number of tiles in the y direction
-  #     step     : actual step size used (grid cells)
-  #     x.starts : x-direction tile origin positions (standardized, 1-indexed)
-  #     y.starts : y-direction tile origin positions (standardized, 1-indexed)
-  #   coords : original grid coordinates
+  #     indices    : (block.l^2) x n.tiles integer matrix of row indices into data,
+  #                  one column per tile, in column-major (y-first) order within tile
+  #     pt.indices : (if pt.data provided) length-n.tiles list of integer vectors,
+  #                  each giving the row indices into pt.data for that tile
+  #     n.tiles    : total number of tiles
+  #     n.tiles.x  : number of tiles in the x direction
+  #     n.tiles.y  : number of tiles in the y direction
+  #     step       : actual step size used (grid cells)
+  #     x.starts   : x-direction tile origin positions (standardized, 1-indexed)
+  #     y.starts   : y-direction tile origin positions (standardized, 1-indexed)
+  #   coords    : original grid coordinates
+  #   pt.coords : (if pt.data provided) original point process coordinates
 
   ### 1. Grid setup (mirrors spbbGrid)
 
@@ -51,7 +59,18 @@ spsubGrid <- function(
   coord.index <- order(new.coords[, 1], new.coords[, 2], decreasing = c(FALSE, FALSE))
   grid.index  <- matrix(coord.index, nrow = n.y, ncol = n.x)
 
-  ### 2. Build tiles for each block length
+  ### 2. Set up for point process data (optional)
+
+  has.pt <- !is.null(pt.data) && !is.null(pt.coord.names)
+
+  if (has.pt) {
+    pt.orig.coords <- pt.data[, pt.coord.names, drop = FALSE]
+    # Same standardization as the grid: integer k <-> grid cell k
+    pt.std.x <- (pt.orig.coords[, 1] - lims.x[1] + delta.x) / delta.x
+    pt.std.y <- (pt.orig.coords[, 2] - lims.y[1] + delta.y) / delta.y
+  }
+
+  ### 3. Build tiles for each block length
 
   tiles <- vector("list", length(block.l))
 
@@ -82,18 +101,32 @@ spsubGrid <- function(
     # Tiles are ordered: y-index varies fastest (column-major over tile origins).
     tile.indices <- matrix(NA_integer_, nrow = n.per.tile, ncol = n.tiles)
 
+    if (has.pt) pt.indices <- vector("list", n.tiles)
+
     tile.num <- 1L
     for (j in seq_along(x.starts)) {
       for (i in seq_along(y.starts)) {
         x.block <- x.starts[j] + seq_len(b.l) - 1L   # column indices in grid.index
         y.block <- y.starts[i] + seq_len(b.l) - 1L   # row    indices in grid.index
+
         # grid.index[y.block, x.block] is b.l x b.l; c() flattens column-major
         tile.indices[, tile.num] <- c(grid.index[y.block, x.block])
+
+        # Point process: collect indices of points within this tile's spatial extent.
+        # Tile covers standardized x in [x.starts[j] - 0.5, x.starts[j] + b.l - 0.5)
+        # and standardized y in [y.starts[i] - 0.5, y.starts[i] + b.l - 0.5).
+        if (has.pt) {
+          pt.indices[[tile.num]] <- which(
+            pt.std.x >= x.starts[j] - 0.5 & pt.std.x < x.starts[j] + b.l - 0.5 &
+            pt.std.y >= y.starts[i] - 0.5 & pt.std.y < y.starts[i] + b.l - 0.5
+          )
+        }
+
         tile.num <- tile.num + 1L
       }
     }
 
-    tiles[[m]] <- list(
+    out <- list(
       indices   = tile.indices,
       n.tiles   = n.tiles,
       n.tiles.x = n.tiles.x,
@@ -102,12 +135,16 @@ spsubGrid <- function(
       x.starts  = x.starts,
       y.starts  = y.starts
     )
+    if (has.pt) out$pt.indices <- pt.indices
+    tiles[[m]] <- out
   }
 
   names(tiles) <- paste0("bl.", block.l)
 
-  list(
+  result <- list(
     tiles  = tiles,
     coords = orig.coords
   )
+  if (has.pt) result$pt.coords <- pt.orig.coords
+  result
 }

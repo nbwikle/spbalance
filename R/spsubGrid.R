@@ -88,9 +88,14 @@ spsubGrid <- function(
     # kappa -> 1 -> step = 1  (maximally overlapping)
     step <- max(1L, round(b.l * (1 - kappa)))
 
-    # Valid tile origin positions: tile must fit entirely within the grid
+    # Valid tile origin positions: tile must fit entirely within the grid.
+    # If the grid dimension is not divisible by step, the last tile is shifted
+    # back to end exactly at the boundary, ensuring full coverage.
     x.starts <- seq(1L, n.x - b.l + 1L, by = step)
+    if (tail(x.starts, 1L) != n.x - b.l + 1L) x.starts <- c(x.starts, n.x - b.l + 1L)
+
     y.starts <- seq(1L, n.y - b.l + 1L, by = step)
+    if (tail(y.starts, 1L) != n.y - b.l + 1L) y.starts <- c(y.starts, n.y - b.l + 1L)
 
     n.tiles.x  <- length(x.starts)
     n.tiles.y  <- length(y.starts)

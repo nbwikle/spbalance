@@ -103,6 +103,12 @@ parseFormula <- function(form){
     pf <- paste(pf, "1", sep = "")
   }
 
+  # When parametric terms exist but no krr terms, krrf was never extended past
+  # "response~"; default it to intercept-only so as.formula() doesn't fail.
+  if (nkrr == 0 && ns < nt){
+    krrf <- paste(krrf, "1", sep = "")
+  }
+
   ### 2. Store parametric, krr, and smooth terms in a list
 
   # return parsed formula

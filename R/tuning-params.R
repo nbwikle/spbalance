@@ -194,7 +194,7 @@ krrPredMat <- function(fit, newdata){
 
       s.full <- kernelEval(
         d.mat,
-        tuning = fit$krr.obj$k.params,
+        k.params = fit$krr.obj$k.params,
         type = fit$krr.obj$kernel,
         centered = FALSE
       )
@@ -215,7 +215,7 @@ krrPredMat <- function(fit, newdata){
     } else {
       sigma.p <- kernelEval(
         d.mat[n.fit + 1:n.pred, 1:n.fit],
-        tuning = fit$krr.obj$k.params,
+        k.params = fit$krr.obj$k.params,
         type = fit$krr.obj$kernel,
         centered = FALSE
       )
@@ -446,6 +446,18 @@ maxBal <- function(fit, z, data, max.diff = 0.1, return.fit = FALSE){
 }
 
 
+#' Weighted covariate balance
+#'
+#' Absolute standardised differences in weighted covariate means between
+#' treated and control units.
+#'
+#' @param x.mat covariate matrix.
+#' @param trt1 indices of treated units.
+#' @param trt2 indices of control units.
+#' @param weights propensity score (IPTW) weights.
+#' @param d.type standard deviation used: 1 = treated group, 2 = pooled.
+#' @return Matrix of absolute standardised mean differences, one per covariate.
+#' @export
 calcBalance <- function(x.mat, trt1, trt2, weights, d.type = 2){
   # Calculate the absolute standardized difference in means between trt/ctrl.
   # Input:

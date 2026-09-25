@@ -64,7 +64,6 @@ test_that("spbalATE checks its inputs", {
 })
 
 test_that("block bootstrap standard errors come from spbootstrap", {
-  skip_if_not_installed("spbootstrap")
   d <- sim_data(12)
   fit <- fit_data(d)
   set.seed(3)

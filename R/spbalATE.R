@@ -163,10 +163,6 @@ refitBalance <- function(fit, data) {
 bootATE <- function(fit, data, outcome, trt.name, estimator, coords,
                     mu.formula, mu.family, boot) {
   # Spatial block bootstrap of the ATE estimators via spbootstrap.
-  if (!requireNamespace("spbootstrap", quietly = TRUE)) {
-    stop("Bootstrap standard errors need the spbootstrap package; please install it.",
-         call. = FALSE)
-  }
   opts <- utils::modifyList(
     list(n.boot = 200, block.l = NULL, n.pilot = 100, type = "grid", shift = TRUE,
          apply.fun = lapply, box.x = NULL, box.y = NULL, boundary = NULL,

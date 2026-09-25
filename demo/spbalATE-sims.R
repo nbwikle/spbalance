@@ -51,12 +51,6 @@ simDupont <- function(locs, beta = 3) {
              outcome = beta * exposure - z - zp + rnorm(nrow(locs)))
 }
 
-fitATE <- function(df, boot) {
-  fit <- spBalance(ps.form, data = df, lambda = lambdas, tuning = "coefvar", opt.params = opt)
-  spbalATE(fit, df, outcome = "outcome", estimator = c("HT", "Hajek"),
-           se = c("iid", "hac", "boot"), boot = c(boot, list(apply.fun = par.fun)))
-}
-
 
 #------------------------------------------------------------------------#
 #--- (i) Raster data: a 30 x 30 grid                                  ---#

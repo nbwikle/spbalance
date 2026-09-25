@@ -15,12 +15,13 @@ unobserved spatial confounding" (working title).
 ## Installation
 
 ``` r
-# from the repository root
-devtools::install()
+# install.packages("remotes")
+remotes::install_github("nbwikle/spbalance")
 ```
 
-Block bootstrap standard errors additionally need the
-`spbootstrap` package.
+This also installs [`spbootstrap`](https://github.com/nbwikle/spbootstrap),
+which provides the spatial block bootstrap. To install from a local copy of
+this repository instead, run `devtools::install()` from its root.
 
 ## Usage
 

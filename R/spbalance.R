@@ -4,6 +4,19 @@
 ### Functions used to create balancing weights for settings with unobserved
 ###   spatial confounding.
 
+termEnv <- function(form) {
+  # Environment for evaluating s() and krr() terms of `form`: the formula's own
+  # environment (so terms can use variables such as `k = n.knots`), with s()
+  # and krr() available even if mgcv/spbalance are not attached.
+  parent <- environment(form)
+  if (is.null(parent)) parent <- globalenv()
+  env <- new.env(parent = parent)
+  env$s <- mgcv::s
+  env$krr <- krr
+  env
+}
+
+
 parseFormula <- function(form){
   # Helper function to parse a formula object and determine what
   #   model components to "balance".
@@ -51,7 +64,7 @@ parseFormula <- function(form){
     for (i in 1:nt){
       if (ks <= ns && sp[ks] == i + 1){
         # it's a smooth
-        st <- eval(parse(text = terms[i]))
+        st <- eval(parse(text = terms[i]), envir = termEnv(form))
         if (ks > 1 || kp > 1) {
           # add to smooth formula
           rf <- paste(rf, "+", terms[i], sep = "")
@@ -61,7 +74,7 @@ parseFormula <- function(form){
         ks <- ks + 1
       } else if (kkern <= nkrr && krrp[kkern] == i + 1){
         # it's a krr term
-        krrt <- eval(parse(text = terms[i]))
+        krrt <- eval(parse(text = terms[i]), envir = termEnv(form))
 
         if (!krrt$cent){
           kcentered <- FALSE
@@ -103,16 +116,22 @@ parseFormula <- function(form){
     pf <- paste(pf, "1", sep = "")
   }
 
+  # When parametric terms exist but no krr terms, krrf was never extended past
+  # "response~"; default it to intercept-only so as.formula() doesn't fail.
+  if (nkrr == 0 && ns < nt){
+    krrf <- paste(krrf, "1", sep = "")
+  }
+
   ### 2. Store parametric, krr, and smooth terms in a list
 
   # return parsed formula
   ret <- list(
     pftext = pf,
-    pf = as.formula(pf), # parametric forumla
+    pf = as.formula(pf, env = termEnv(form)), # parametric forumla
     smtext = rf,
-    smf = as.formula(rf), # parametric + spline formula
+    smf = as.formula(rf, env = termEnv(form)), # parametric + spline formula
     krrtext = krrf,
-    krrf = as.formula(krrf), # krr formula only
+    krrf = as.formula(krrf, env = termEnv(form)), # krr formula only
     kcentered = TRUE
   )
   class(ret) <- "split.formula"
@@ -120,6 +139,23 @@ parseFormula <- function(form){
 }
 
 
+#' Kernel ridge regression term for spBalance formulas
+#'
+#' Specifies a kernel ridge regression (KRR) term in the formula passed to
+#' [spBalance()], e.g. `trt ~ x1 + krr(x, y, kern = "Exp", kp = 5)`. The term
+#' is interpreted by `spBalance()`; `krr()` is not normally called directly.
+#'
+#' @param ... variables included in the kernel evaluation.
+#' @param kern RKHS kernel, one of `"SE"` (squared exponential) or `"Exp"`
+#'   (exponential).
+#' @param kp kernel (range) parameter; must be positive.
+#' @param var.inds optional indices of the variables to include in the KRR term.
+#' @param centered logical; should the KRR term be centred at zero?
+#' @param scale logical; should the KRR term be scaled to have maximum 1?
+#' @param rff logical; approximate the kernel with random Fourier features?
+#' @param nf number of random Fourier features (when `rff = TRUE`).
+#' @return An object of class `"krr.spec"`.
+#' @export
 krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scale = TRUE, rff = FALSE, nf = 0){
   # Formats a kernel ridge regression (KRR) formula term into a 'krr.spec' object.
   # Input
@@ -200,12 +236,44 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
   ret
 }
 
-
+#' Spatial covariate balancing propensity scores
+#'
+#' Estimates propensity scores with a loss that targets covariate balance,
+#' allowing parametric terms, spline terms (`s()`, as in \pkg{mgcv}) and kernel
+#' ridge regression terms ([krr()]) to adjust for (unmeasured) spatial
+#' confounding. Use [spbalATE()] to estimate the average treatment effect and
+#' its standard error from the fit.
+#'
+#' @param formula treatment model, e.g. `trt ~ x1 + s(x, y, k = 100)`; the
+#'   response is the binary treatment.
+#' @param data data frame containing all variables in `formula`.
+#' @param lambda vector of candidate penalty (tuning) parameter values.
+#' @param init.params optional initial parameter values.
+#' @param fit.gam logical; fit the GAM in \pkg{mgcv} when building spline terms.
+#' @param pen.int logical; penalise the intercept?
+#' @param tuning tuning parameter selection method: one of `"none"`,
+#'   `"cv.score"`, `"cv.grad"`, `"coefvar"`, `"max.bal"`, `"min"` or `"all"`.
+#' @param folds number of cross-validation folds (CV-based tuning only).
+#' @param grad.norm norm used by `"cv.grad"` tuning: `"L1"`, `"L2"` or `"Linf"`.
+#' @param coefvar.r ratio used by `"coefvar"` tuning (scalar or vector).
+#' @param bal.diff maximum standardised mean difference allowed by
+#'   `"max.bal"` tuning.
+#' @param hide.details logical; if `FALSE`, tuning details are returned.
+#' @param opt.params optimisation settings (`tol`, `max.iter`, `alpha`, `beta`).
+#' @param hessian logical; return the Hessian of the loss?
+#' @param ... further arguments passed to [mgcv::gam()] when building spline
+#'   terms.
+#' @return An object of class `"bal"`: a list with the estimated parameters
+#'   (`par`), propensity scores (`pi.hat`), the chosen penalty (`lambda`), the
+#'   design and penalty matrices (`X`, `P`), and `spec`, the settings used
+#'   (so the model can be refitted, e.g. on bootstrap replicates).
+#' @export
 spBalance <- function(
   formula, data, lambda, init.params = NULL, fit.gam = FALSE, pen.int = FALSE,
   tuning = "none", folds = 10, grad.norm = "L2", coefvar.r = 0.9, bal.diff = 0.1,
   hide.details = TRUE,
   opt.params = list(tol = 1e-7, max.iter = 100, alpha = 0.5, beta = 0.5),
+  hessian = FALSE,
   ...
 ){
   # Estimates balancing weights for a given formula, including parametric,
@@ -238,6 +306,15 @@ spBalance <- function(
   #   A list containing estimated parameter values, estimated propensity scores,
   # chosen tuning parameter (lambda), and tuning parameter selection details.
 
+  # settings used for this fit, so the model can be refitted on new data
+  spec <- list(
+    formula = formula, lambda = lambda, init.params = init.params,
+    fit.gam = fit.gam, pen.int = pen.int, tuning = tuning, folds = folds,
+    grad.norm = grad.norm, coefvar.r = coefvar.r, bal.diff = bal.diff,
+    hide.details = hide.details, opt.params = opt.params, hessian = hessian,
+    dots = list(...)
+  )
+
   # fit model with specific lambda
   full.fit <- spBalFit(
     formula = formula,
@@ -246,7 +323,8 @@ spBalance <- function(
     opt.params = opt.params,
     init.params = init.params,
     fit.gam = fit.gam,
-    pen.int = pen.int
+    pen.int = pen.int,
+    hessian = hessian
   )
 
   # begin compiling results
@@ -277,6 +355,11 @@ spBalance <- function(
       res$par <- full.fit$par[,l.choice]
       res$pi.hat <- full.fit$pi.hat[,l.choice]
       res$lambda <- cv.res$lambda[1]
+
+      if(hessian){
+        res$hessian <- res$hessian[l.choice]
+      }
+
       if (!hide.details){
         res$tuning.details <- colMeans(cv.res$cv[[1]])
       }
@@ -315,6 +398,9 @@ spBalance <- function(
       res$par <- full.fit$par[,l.coef.all]
       res$pi.hat <- full.fit$pi.hat[,l.coef.all]
       res$lambda <- full.fit$lambda[l.coef.all]
+      if(hessian){
+        res$hessian <- res$hessian[l.coef.all]
+      }
       if (!hide.details){
         res$tuning.details <- l.coef.details
       }
@@ -336,6 +422,9 @@ spBalance <- function(
       res$par <- full.fit$par[,l.bal]
       res$pi.hat <- full.fit$pi.hat[,l.bal]
       res$lambda <- mbal$lambda
+      if(hessian){
+        res$hessian <- res$hessian[l.bal]
+      }
       if (!hide.details){
         res$tuning.details <- l.bal.details
       }
@@ -348,6 +437,9 @@ spBalance <- function(
     res$par <-full.fit$par[,l.min]
     res$pi.hat <- full.fit$pi.hat[,l.min]
     res$lambda <- lambda[l.min]
+    if(hessian){
+      res$hessian <- res$hessian[l.min]
+    }
     if (!hide.details){
       res$tuning.details <- lambda
     }
@@ -381,6 +473,9 @@ spBalance <- function(
     }
 
   }
+
+  res$spec <- spec
+  class(res) <- "bal"
   # return fitted model
   return(res)
 }
@@ -512,7 +607,7 @@ spBalFit <- function(
 
     for (k in 1:n.krr){
       # grab krr term
-      krr.t <- eval(parse(text = krr.terms[k]))
+      krr.t <- eval(parse(text = krr.terms[k]), envir = termEnv(formula))
       # create krr structures
       krr.k <- krrCreation(krr.obj = krr.t, data = data)
       krr.obj[[k]] <- krr.k
@@ -593,7 +688,11 @@ spBalFit <- function(
     gam = gam.obj,
     krr = krr.obj,
     dims = s.dims,
-    terms = term.type
+    terms = term.type,
+    # design and penalty matrices of the balancing loss, needed for the
+    # influence functions (and so for iid and HAC standard errors)
+    X = basis.full,
+    P = penalty.full
   )
 
   return(results)

@@ -1,0 +1,31 @@
+Package: spbalance
+Type: Package
+Title: Covariate Balancing Propensity Scores with Spatial Confounding
+Version: 0.1.0
+Authors@R: person("Nathan B.", "Wikle", email = "nbwikle@gmail.com",
+    role = c("aut", "cre"))
+Description: Estimates propensity scores with a loss that prioritises covariate
+    balance, using spline and kernel ridge regression terms in space to adjust
+    for unmeasured spatial confounding. Average treatment effects are estimated
+    by inverse probability of treatment weighting (Horvitz-Thompson, Hajek and
+    augmented estimators), with iid, spatial HAC or spatial block bootstrap
+    standard errors.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Imports:
+    caret,
+    conleyreg,
+    fields,
+    gstat,
+    mgcv,
+    stats,
+    units,
+    utils
+Suggests:
+    sf,
+    spbootstrap,
+    terra,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1

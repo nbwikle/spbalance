@@ -539,8 +539,10 @@ spBalFit <- function(
 
     ### collect basis functions into a list
 
-    # number of fixed effects (including intercept)
-    n.fixed <- length(all.vars(gam.obj$pterms))
+    # number of fixed effects (including intercept); use nsdf rather than the
+    #   number of variables so that factor covariates (which expand to
+    #   several dummy columns) are counted correctly
+    n.fixed <- gam.obj$nsdf
     n.comb <- ncol(spline.basis)
 
     # intercept
@@ -576,7 +578,7 @@ spBalFit <- function(
         S.tilde.k <- sm.k$S[[1]]
         S.k <- S.tilde.k * alpha.k
         penalty[[k + n.p]] <- S.k
-        s.dims[[k + n.p]] <- max(unlist(s.dims), na.rm = TRUE) + 1:nrow(S.k)
+        s.dims[[k + n.p]] <- sm.k$first.para:sm.k$last.para
         basis[[k + n.p]] <- matrix(spline.basis[,s.dims[[k + n.p]]], ncol = ncol(S.k))
         term.type[[k + n.p]] <- "smooth"
       }

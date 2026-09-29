@@ -251,6 +251,17 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
 #' @param init.params optional initial parameter values.
 #' @param fit.gam logical; fit the GAM in \pkg{mgcv} when building spline terms.
 #' @param pen.int logical; penalise the intercept?
+#' @param pen.fixed logical; penalise the parametric (measured confounder)
+#'   terms? If `FALSE`, only the spline and KRR terms are penalised, so the
+#'   fitted weights balance the measured confounders exactly.
+#' @param pen.scale how penalties are scaled relative to one another:
+#'   `"mgcv"` (default) uses an identity ridge on the raw parametric
+#'   coefficients and mgcv's own scaling of each spline penalty; `"equal"`
+#'   scales them so each measured confounder and each spline term has the same
+#'   prior variance of its contribution to the linear predictor. The fit (and
+#'   so `lambda`) then does not depend on the units of the covariates, and
+#'   depends only slightly on the units of the coordinates (through mgcv's
+#'   truncated thin plate basis). See Details.
 #' @param tuning tuning parameter selection method: one of `"none"`,
 #'   `"cv.score"`, `"cv.grad"`, `"coefvar"`, `"max.bal"`, `"min"` or `"all"`.
 #' @param folds number of cross-validation folds (CV-based tuning only).
@@ -263,6 +274,22 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
 #' @param hessian logical; return the Hessian of the loss?
 #' @param ... further arguments passed to [mgcv::gam()] when building spline
 #'   terms.
+#' @details With `pen.scale = "equal"`, the penalty is read as a Gaussian prior
+#'   and every confounder's contribution to the linear predictor is given
+#'   the same prior variance, `1 / lambda`:
+#'   * parametric terms get the ridge `var(x_j) * beta_j^2`, equivalent to an
+#'     identity ridge on standardised covariates;
+#'   * each spline term `g = B theta` with penalty `S` gets
+#'     `c * S + U0 (Z0'Z0 / n) U0'`. Here `c` makes the average prior variance
+#'     of `g(s_i)` equal to one (cf. Sørbye and Rue, 2014), and the second part
+#'     penalises the spline's unpenalised null space (e.g. the linear trend in
+#'     `x`, `y` for a thin plate spline) by its empirical variance, just as a
+#'     measured covariate is.
+#'
+#'   KRR penalties are not rescaled. The optimization is also carried out
+#'   on standardized columns (and transformed back), which gives the same
+#'   objective but avoids early stopping when columns have very different
+#'   scales.
 #' @return An object of class `"bal"`: a list with the estimated parameters
 #'   (`par`), propensity scores (`pi.hat`), the chosen penalty (`lambda`), the
 #'   design and penalty matrices (`X`, `P`), and `spec`, the settings used
@@ -270,6 +297,7 @@ krr <- function(..., kern = "SE", kp = 1, var.inds = NULL, centered = TRUE, scal
 #' @export
 spBalance <- function(
   formula, data, lambda, init.params = NULL, fit.gam = FALSE, pen.int = FALSE,
+  pen.fixed = TRUE, pen.scale = c("mgcv", "equal"),
   tuning = "none", folds = 10, grad.norm = "L2", coefvar.r = 0.9, bal.diff = 0.1,
   hide.details = TRUE,
   opt.params = list(tol = 1e-7, max.iter = 100, alpha = 0.5, beta = 0.5),
@@ -293,6 +321,8 @@ spBalance <- function(
   #   init.params: initial parameter estimates; default is 'NULL'
   #   fit.gam: Boolean indicating if GAM model should be fitted in mgcv; default is 'FALSE'
   #   pen.int: Boolean indicating if the intercept should be penalized; default is 'FALSE'
+  #   pen.fixed: Boolean indicating if parametric terms should be penalized; default is 'TRUE'
+  #   pen.scale: 'mgcv' (default) or 'equal'; see spBalFit
   #   tuning: indicates how the tuning parameter should be chosen; options include
   #     `cv.score`, `cv.grad`, `coefvar`, `max.bal`, `min`, `all`
   #   folds: number of CV folds (if using a CV method for tuning parameter selection)
@@ -306,10 +336,13 @@ spBalance <- function(
   #   A list containing estimated parameter values, estimated propensity scores,
   # chosen tuning parameter (lambda), and tuning parameter selection details.
 
+  pen.scale <- match.arg(pen.scale)
+
   # settings used for this fit, so the model can be refitted on new data
   spec <- list(
     formula = formula, lambda = lambda, init.params = init.params,
-    fit.gam = fit.gam, pen.int = pen.int, tuning = tuning, folds = folds,
+    fit.gam = fit.gam, pen.int = pen.int, pen.fixed = pen.fixed,
+    pen.scale = pen.scale, tuning = tuning, folds = folds,
     grad.norm = grad.norm, coefvar.r = coefvar.r, bal.diff = bal.diff,
     hide.details = hide.details, opt.params = opt.params, hessian = hessian,
     dots = list(...)
@@ -324,6 +357,8 @@ spBalance <- function(
     init.params = init.params,
     fit.gam = fit.gam,
     pen.int = pen.int,
+    pen.fixed = pen.fixed,
+    pen.scale = pen.scale,
     hessian = hessian
   )
 
@@ -347,7 +382,9 @@ spBalance <- function(
       type = tuning,
       norm = grad.norm,
       fit.gam = fit.gam,
-      pen.int = pen.int
+      pen.int = pen.int,
+      pen.fixed = pen.fixed,
+      pen.scale = pen.scale
     )
 
     if ((tuning == "cv.score") | (tuning == "cv.grad")){
@@ -483,6 +520,7 @@ spBalance <- function(
 
 spBalFit <- function(
   formula, data = list(), lambda, init.params = NULL, fit.gam = FALSE, pen.int = FALSE,
+  pen.fixed = TRUE, pen.scale = "mgcv",
   opt.params = list(tol = 1e-7, max.iter = 100, alpha = 0.5, beta = 0.5),...
 ){
   # Estimate covariate balancing propensity scores for a given formula and
@@ -496,6 +534,10 @@ spBalFit <- function(
   #   init.params: initial parameter estimates; default is 'NULL'
   #   fit.gam: Boolean indicating if GAM model should be fitted in mgcv; default is 'FALSE'
   #   pen.int: Boolean indicating if the intercept should be penalized; default is 'FALSE'
+  #   pen.fixed: Boolean indicating if parametric terms should be penalized; default is 'TRUE'
+  #   pen.scale: how penalties are scaled; 'mgcv' (identity ridge on the raw
+  #     parametric coefficients, mgcv's scaling of spline penalties) or 'equal'
+  #     (equal prior variance for each measured confounder and each spline term)
   #   opt.params: optimization parameters passed to 'optim'
   # Output
   #   Returns a list with parameter estimates, fitted propensity scores,
@@ -558,7 +600,17 @@ spBalFit <- function(
     # fixed effects
     if (n.fixed > 1){
       basis[[2]] <- matrix(spline.basis[,2:(n.fixed)], ncol = n.fixed - 1)
-      penalty[[2]] <- diag(1, n.fixed - 1)
+      if (!pen.fixed){
+        penalty[[2]] <- matrix(0, nrow = n.fixed - 1, ncol = n.fixed - 1)
+      } else if (pen.scale == "equal"){
+        # ridge on the standardized scale; a constant column carries no
+        #   information, so keep an identity penalty to hold it at zero
+        x.var <- apply(basis[[2]], 2, stats::var)
+        x.var[x.var == 0] <- 1
+        penalty[[2]] <- diag(x.var, nrow = n.fixed - 1)
+      } else {
+        penalty[[2]] <- diag(1, n.fixed - 1)
+      }
       s.dims[[2]] <- 2:n.fixed
       term.type[[2]] <- "fixed"
     }
@@ -577,9 +629,13 @@ spBalFit <- function(
         # penalty matrix
         S.tilde.k <- sm.k$S[[1]]
         S.k <- S.tilde.k * alpha.k
-        penalty[[k + n.p]] <- S.k
         s.dims[[k + n.p]] <- sm.k$first.para:sm.k$last.para
         basis[[k + n.p]] <- matrix(spline.basis[,s.dims[[k + n.p]]], ncol = ncol(S.k))
+        if (pen.scale == "equal"){
+          penalty[[k + n.p]] <- equalSmoothPenalty(S = S.tilde.k, B = basis[[k + n.p]])
+        } else {
+          penalty[[k + n.p]] <- S.k
+        }
         term.type[[k + n.p]] <- "smooth"
       }
     }
@@ -602,6 +658,9 @@ spBalFit <- function(
 
   # number of krr terms
   n.krr <- length(krr.terms)
+  if (n.krr > 0 && pen.scale == "equal"){
+    warning("pen.scale = 'equal' rescales parametric and spline penalties only; KRR penalties are unchanged.")
+  }
   n.s <- length(basis)
   krr.obj <- list()
 
@@ -664,16 +723,28 @@ spBalFit <- function(
   convergence <- rep(0, n.l)
   counts <- list()
 
-  theta.k <- init.params
+  # with pen.scale = "equal", optimize over standardized columns: this is the
+  #   same objective (X theta = X.opt theta.opt, with theta.opt = theta * sd),
+  #   but better conditioned, so BFGS does not stop early when covariates or
+  #   coordinates are on very different scales
+  col.sd <- rep(1, n.theta)
+  if (pen.scale == "equal" && !krr.only){
+    col.sd <- apply(basis.full, 2, stats::sd)
+    col.sd[col.sd == 0] <- 1
+  }
+  X.opt <- sweep(basis.full, 2, col.sd, "/")
+  P.opt <- penalty.full / outer(col.sd, col.sd)
+
+  theta.k <- if (is.null(init.params)) NULL else init.params * col.sd
   for (k in 1:n.l){
     fit.k <- spbalWeights(
       theta = theta.k,
-      z = treat, X = basis.full, P = penalty.full, lambda = lambda[k],
+      z = treat, X = X.opt, P = P.opt, lambda = lambda[k],
       opt.params = opt.params, krr.only = krr.only,
       centered = parseform$kcentered
     )
     theta.k <- fit.k$theta
-    theta.m[,k] <- theta.k
+    theta.m[,k] <- theta.k / col.sd
     pi.hat[,k] <- fit.k$pi.hat
     convergence[k] <- fit.k$convergence
     counts[[k]] <- fit.k$counts
@@ -752,6 +823,41 @@ spbalWeights <- function(theta = NULL, z, X, P, lambda, opt.params, krr.only = F
     counts = fit$counts
   )
   res
+}
+
+
+equalSmoothPenalty <- function(S, B, tol = 1e-10){
+  # Rescales a spline penalty so the spline term has the same prior variance
+  #   as a standardized measured confounder (used with pen.scale = "equal").
+  # Input
+  #   S: penalty matrix of the spline term (unscaled)
+  #   B: n x k basis matrix of the spline term
+  #   tol: relative tolerance used to identify the penalty's null space
+  # Output
+  #   A k x k penalty matrix equal to c * S + U0 (Z0'Z0 / n) U0', where
+  # (i) c sets the average prior variance of the penalized (wiggly) part of the
+  # spline, g(s_i), to one, and (ii) the null space of S (e.g., the linear
+  # trend in the coordinates of a thin plate spline) receives a ridge penalty
+  # equal to its empirical variance, as a standardized covariate would.
+
+  n <- nrow(B)
+  eS <- eigen(S, symmetric = TRUE)
+  pos <- eS$values > max(eS$values) * tol
+
+  # penalized part: prior precision c * D on the coefficients of Z = B U+,
+  #   so var(g(s_i)) = [Z D^{-1} Z']_ii / c; choose c for an average of one
+  Z <- B %*% eS$vectors[, pos, drop = FALSE]
+  c.s <- mean(rowSums(sweep(Z, 2, eS$values[pos], "/") * Z))
+  P <- c.s * S
+
+  # null space: penalize by its empirical variance
+  if (any(!pos)){
+    U0 <- eS$vectors[, !pos, drop = FALSE]
+    Z0 <- scale(B %*% U0, center = TRUE, scale = FALSE)
+    P <- P + U0 %*% (crossprod(Z0) / n) %*% t(U0)
+  }
+
+  (P + t(P)) / 2
 }
 
 

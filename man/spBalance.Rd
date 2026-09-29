@@ -11,6 +11,8 @@ spBalance(
   init.params = NULL,
   fit.gam = FALSE,
   pen.int = FALSE,
+  pen.fixed = TRUE,
+  pen.scale = c("mgcv", "equal"),
   tuning = "none",
   folds = 10,
   grad.norm = "L2",
@@ -35,6 +37,19 @@ response is the binary treatment.}
 \item{fit.gam}{logical; fit the GAM in \pkg{mgcv} when building spline terms.}
 
 \item{pen.int}{logical; penalise the intercept?}
+
+\item{pen.fixed}{logical; penalise the parametric (measured confounder)
+terms? If \code{FALSE}, only the spline and KRR terms are penalised, so the
+fitted weights balance the measured confounders exactly.}
+
+\item{pen.scale}{how penalties are scaled relative to one another:
+\code{"mgcv"} (default) uses an identity ridge on the raw parametric
+coefficients and mgcv's own scaling of each spline penalty; \code{"equal"}
+scales them so each measured confounder and each spline term has the same
+prior variance of its contribution to the linear predictor. The fit (and
+so \code{lambda}) then does not depend on the units of the covariates, and
+depends only slightly on the units of the coordinates (through mgcv's
+truncated thin plate basis). See Details.}
 
 \item{tuning}{tuning parameter selection method: one of \code{"none"},
 \code{"cv.score"}, \code{"cv.grad"}, \code{"coefvar"}, \code{"max.bal"}, \code{"min"} or \code{"all"}.}
@@ -69,4 +84,24 @@ allowing parametric terms, spline terms (\code{s()}, as in \pkg{mgcv}) and kerne
 ridge regression terms (\code{\link[=krr]{krr()}}) to adjust for (unmeasured) spatial
 confounding. Use \code{\link[=spbalATE]{spbalATE()}} to estimate the average treatment effect and
 its standard error from the fit.
+}
+\details{
+With \code{pen.scale = "equal"}, the penalty is read as a Gaussian prior
+and every confounder's contribution to the linear predictor is given
+the same prior variance, \code{1 / lambda}:
+\itemize{
+\item parametric terms get the ridge \code{var(x_j) * beta_j^2}, equivalent to an
+identity ridge on standardised covariates;
+\item each spline term \verb{g = B theta} with penalty \code{S} gets
+\verb{c * S + U0 (Z0'Z0 / n) U0'}. Here \code{c} makes the average prior variance
+of \code{g(s_i)} equal to one (cf. Sørbye and Rue, 2014), and the second part
+penalises the spline's unpenalised null space (e.g. the linear trend in
+\code{x}, \code{y} for a thin plate spline) by its empirical variance, just as a
+measured covariate is.
+}
+
+KRR penalties are not rescaled. The optimization is also carried out
+on standardized columns (and transformed back), which gives the same
+objective but avoids early stopping when columns have very different
+scales.
 }
